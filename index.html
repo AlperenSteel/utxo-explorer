@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UTXO ve İşlem Gezgini</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --fg: #15191f; --muted: #5d6573; --line: #dde1e7;
+    --accent: #2a6fdb; --ok: #2e8b4a; --warn: #b7791f; --err: #c0392b;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1216; --surface: #171b21; --fg: #e6e9ee; --muted: #98a1ae; --line: #2a3039;
+            --accent: #5b9cff; --ok: #4cc06e; --warn: #e0a83a; --err: #ff6b5e; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); }
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
+  h1 { margin: 0; font-size: 1.4rem; font-weight: 600; }
+  .sub { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+  a { color: var(--accent); }
+  form { display: flex; gap: 8px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  input, select, button { font: inherit; border-radius: 8px; border: 1px solid var(--line); padding: 8px 12px; background: var(--bg); color: var(--fg); }
+  input { flex: 1 1 380px; min-width: 0; font-family: var(--mono); font-size: .9rem; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.link { border: none; background: none; color: var(--accent); padding: 0; cursor: pointer; font: inherit; text-decoration: underline; }
+  button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .msg { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
+  .msg.err { border-color: var(--err); color: var(--err); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card h2 { margin: 0 0 10px; font-size: 1rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 18px; }
+  .kv .k { color: var(--muted); font-size: .8rem; }
+  .kv .v { font-family: var(--mono); font-size: .9rem; word-break: break-all; font-variant-numeric: tabular-nums; }
+  .kv .d { color: var(--muted); font-size: .78rem; }
+  .tbl { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .86rem; min-width: 760px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: .78rem; }
+  td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.mono { font-family: var(--mono); font-size: .8rem; }
+  tbody tr.click { cursor: pointer; }
+  tbody tr.click:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  tbody tr.click:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .tag { font-size: .75rem; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+  .tag.ok { color: var(--ok); } .tag.warn { color: var(--warn); } .tag.bad { color: var(--err); } .tag.mute { color: var(--muted); }
+  .copy { padding: 2px 8px; font-size: .75rem; margin-left: 6px; }
+  .hint { color: var(--muted); font-size: .82rem; font-weight: 400; }
+  .note { color: var(--muted); font-size: .82rem; }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; font-family: var(--mono); font-size: .88rem; }
+  .flow .op { color: var(--muted); }
+  details { margin-top: 4px; }
+  summary { cursor: pointer; color: var(--accent); font-size: .88rem; }
+  pre.code { margin: 6px 0 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: .8rem/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
+
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; z-index: 10; }
+  .modal { background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; width: 100%; max-width: 780px; padding: 18px 20px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .modal-head h3 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+  .modal-head .opid { font-family: var(--mono); font-size: .8rem; color: var(--muted); word-break: break-all; margin-top: 2px; }
+  .x { font-size: 1.1rem; line-height: 1; padding: 4px 10px; }
+  .sec { margin-top: 16px; }
+  .sec h4 { margin: 0 0 8px; font-size: .82rem; color: var(--muted); font-weight: 500; }
+  .lock { border: 1px solid var(--accent); border-radius: 10px; padding: 12px 14px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .lock.unl { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 6%, transparent); }
+  .lock .who { font-size: 1rem; font-weight: 600; }
+  .lock .addr { font-family: var(--mono); font-size: .9rem; word-break: break-all; margin: 4px 0 8px; }
+  .lock p { margin: 6px 0 0; font-size: .9rem; }
+  .wit { display: grid; grid-template-columns: 150px minmax(0,1fr); gap: 6px 10px; margin-top: 8px; font-size: .85rem; }
+  .wit .k { color: var(--muted); }
+  .wit .v { font-family: var(--mono); font-size: .8rem; word-break: break-all; }
+  .good { color: var(--ok); } .bad { color: var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>UTXO ve İşlem Gezgini</h1>
+    <p class="sub">Bir <b>adres</b> girersen harcanmamış çıktılarını, bir <b>txid</b> (64 hex) girersen işlemin bütün alanlarını gösterir. Veriler public Esplora API'sinden gelir (mempool.space, yedek: blockstream.info). Satırlara tıklayınca ayrıntı penceresi açılır.</p>
+  </header>
+
+  <form id="form">
+    <input id="q" placeholder="Adres (bc1q… / 3… / 1…) ya da txid (64 hex)" autocomplete="off" spellcheck="false" required>
+    <select id="net" aria-label="Ağ">
+      <option value="mainnet">mainnet</option>
+      <option value="testnet">testnet</option>
+      <option value="signet">signet</option>
+    </select>
+    <button class="primary" id="go" type="submit">Sorgula</button>
+  </form>
+
+  <div id="msg" class="msg" hidden></div>
+
+  <!-- ADRES GÖRÜNÜMÜ -->
+  <section id="addrView" hidden>
+    <div class="card">
+      <h2>Adres özeti <button id="dl" type="button">JSON indir</button></h2>
+      <div class="grid" id="summary"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>UTXO listesi <span class="hint">Ayrıntı için bir satıra tıkla</span></h2>
+      <div class="tbl"><table>
+        <thead><tr><th>#</th><th>Outpoint (txid:vout)</th><th style="text-align:right">BTC</th><th style="text-align:right">sat</th><th>Durum</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- İŞLEM GÖRÜNÜMÜ -->
+  <section id="txView" hidden>
+    <div class="card">
+      <h2>İşlem <button id="dlTx" type="button">JSON indir</button></h2>
+      <div class="grid" id="txSummary"></div>
+      <div class="flow" id="txFlow"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Girişler (inputs) <span class="hint">Her giriş, harcanan eski bir banknot. Tıkla: banknot + kilidi açan veri</span></h2>
+      <div class="tbl"><table>
+        <thead><tr><th>#</th><th>Harcanan banknot (prev txid:vout)</th><th>Adres</th><th>Kilit türü</th><th style="text-align:right">BTC</th><th>Sequence</th></tr></thead>
+        <tbody id="vinRows"></tbody>
+      </table></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Çıkışlar (outputs) <span class="hint">Her çıkış, bu işlemin bastığı yeni banknot. Tıkla: UTXO ayrıntısı</span></h2>
+      <div class="tbl"><table>
+        <thead><tr><th>vout</th><th>Adres</th><th>Kilit türü</th><th style="text-align:right">BTC</th><th style="text-align:right">sat</th><th>Durum</th></tr></thead>
+        <tbody id="voutRows"></tbody>
+      </table></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Ham veri</h2>
+      <details><summary>İşlemin ham byte'ları (hex)</summary><pre class="code" id="txHex">yükleniyor…</pre></details>
+      <details><summary>API'nin döndürdüğü JSON</summary><pre class="code" id="txJson"></pre></details>
+    </div>
+  </section>
+
+  <div class="backdrop" id="backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+      <div class="modal-head">
+        <div><h3 id="m-title">Ayrıntı</h3><div class="opid" id="m-op"></div></div>
+        <button type="button" class="x" id="m-close" aria-label="Kapat">×</button>
+      </div>
+      <div id="m-body"></div>
+    </div>
+  </div>
+
+  <p class="note">Not: Sağlayıcı sorguladığın adresleri/işlemleri ve IP'ni görür. Öğrenirken herkese açık örnekler ya da signet kullan. Çok UTXO'lu adreslerde sağlayıcı limit hatası dönebilir.</p>
+</main>
+
+<script>
+const PROVIDERS = {
+  mainnet: ["https://mempool.space/api", "https://blockstream.info/api"],
+  testnet: ["https://mempool.space/testnet/api", "https://blockstream.info/testnet/api"],
+  signet:  ["https://mempool.space/signet/api"],
+};
+const EXPLORER = { mainnet: "https://mempool.space", testnet: "https://mempool.space/testnet", signet: "https://mempool.space/signet" };
+
+const state = { network: "mainnet", base: null, report: null, tx: null, txCache: new Map() };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = n => Number(n).toLocaleString("tr-TR");
+const isTxid = s => /^[0-9a-fA-F]{64}$/.test(s);
+
+// satoshi (tam sayı) → "0.00000000" ; float kullanmadan
+function btc(sat) {
+  const s = BigInt(sat), neg = s < 0n, a = neg ? -s : s;
+  return (neg ? "-" : "") + (a / 100000000n) + "." + (a % 100000000n).toString().padStart(8, "0");
+}
+
+function addressType(address) {
+  const a = address.toLowerCase();
+  for (const hrp of ["bcrt1", "bc1", "tb1"]) {
+    if (a.startsWith(hrp)) {
+      const v = a[hrp.length], len = a.length - (hrp.length - 3);
+      if (v === "q") return len === 42 ? "P2WPKH" : len === 62 ? "P2WSH" : "SegWit v0";
+      if (v === "p") return "P2TR";
+      return "SegWit v" + v;
+    }
+  }
+  if ("1mn".includes(address[0])) return "P2PKH";
+  if ("32".includes(address[0])) return "P2SH (multisig veya wrapped SegWit olabilir)";
+  return "bilinmiyor";
+}
+
+// ---------- ağ ----------
+async function getJson(url) {
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) {
+    const text = (await res.text()).trim();
+    const err = new Error(`${new URL(url).host} → HTTP ${res.status}: ${text || res.statusText}`);
+    err.status = res.status; throw err;
+  }
+  return res.json();
+}
+async function getText(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+// İlk çalışan sağlayıcıyı bulur ve state.base'e kaydeder
+async function withProvider(network, path) {
+  let lastErr;
+  for (const base of PROVIDERS[network]) {
+    try { const data = await getJson(base + path); state.base = base; return data; }
+    catch (e) {
+      lastErr = e.status ? e : new Error(`${new URL(base).host} erişilemedi (${e.message})`);
+      if (e.status === 400 || e.status === 404) break;
+    }
+  }
+  throw lastErr;
+}
+async function getTx(txid) {
+  if (!state.txCache.has(txid)) state.txCache.set(txid, getJson(`${state.base}/tx/${txid}`));
+  try { return await state.txCache.get(txid); }
+  catch (e) { state.txCache.delete(txid); throw e; }
+}
+const getTip = () => getText(`${state.base}/blocks/tip/height`).then(Number).catch(() => null);
+
+// ---------- kilit türleri ----------
+const LOCKS = {
+  p2pkh: { name: "P2PKH (legacy)", who: "Bu adresin private key sahibi",
+    how: h => `Harcayan, HASH160'ı <code>${h}</code> olan public key'i ve o key ile atılmış bir ECDSA imzasını input'un scriptSig'ine koymalı. İmza mesajında input miktarı yok (legacy).` },
+  p2sh: { name: "P2SH", who: "Gizli bir koşulu (redeem script) gösterip sağlayan",
+    how: h => `Kilitte bir anahtar değil, bir koşulun parmak izi var: <code>${h}</code>. Harcayan HASH160'ı bu değere eşit olan koşulu (multisig, wrapped SegWit vb.) gösterir, sonra koşulun istediği imzaları verir. Koşul ancak harcanınca görünür.` },
+  v0_p2wpkh: { name: "P2WPKH (native SegWit v0)", who: "Bu adresin private key sahibi",
+    how: h => `Harcayan, HASH160'ı <code>${h}</code> olan public key'i ve bir ECDSA imzasını witness'a koymalı. İmza mesajında bu input'un miktarı var (BIP143).` },
+  v0_p2wsh: { name: "P2WSH (SegWit v0, koşul)", who: "Gizli bir koşulu (witness script) gösterip sağlayan",
+    how: h => `Kilitte koşulun 32 byte'lık SHA256 parmak izi var: <code>${h}</code>. Harcayan koşulun tamamını ve istediği imzaları witness'a koyar (ör. 2-of-3 multisig).` },
+  v1_p2tr: { name: "P2TR (Taproot)", who: "Bu adresin key'ine sahip olan ya da gizli script ağacındaki bir dalı sağlayan",
+    how: h => `Kilitte public key'in kendisi var (32 byte, x-only): <code>${h}</code>. Key path: tek Schnorr imzası. Script path: ağaçtaki bir dal + kanıt. Hangisinin mümkün olduğu dışarıdan görünmez.` },
+  p2pk: { name: "P2PK (en eski tip)", who: "Kilitteki public key'in private key sahibi",
+    how: () => `Kilitte public key'in kendisi açıkça yazıyor; harcamak için sadece imza yeter. Adres biçimi yok.` },
+  multisig: { name: "Çıplak multisig", who: "Kilitte listelenen key'lerden yeterli sayıda imza getirenler",
+    how: () => `Kilitte public key'ler ve gereken imza sayısı açıkça yazıyor (OP_CHECKMULTISIG). Adres biçimi yok.` },
+  op_return: { name: "OP_RETURN", who: "Hiç kimse",
+    how: () => `Harcanamaz veri satırı; zincire not yazmak için kullanılır. UTXO set'e girmez.` },
+  v1_p2a: { name: "P2A (anchor)", who: "Herkes (fee artırma çapası)",
+    how: () => `Herkesin harcayabildiği küçük bir çıktı; genelde CPFP ile fee artırmak için kullanılır.` },
+};
+const lockOf = t => LOCKS[t] || { name: t, who: "Bilinmeyen kilit türü", how: () => "" };
+const shortType = t => (LOCKS[t]?.name || t).split(" (")[0];
+function lockPayload(type, hex) {
+  if (type === "p2pkh") return hex.slice(6, 46);
+  if (type === "p2sh") return hex.slice(4, 44);
+  if (["v0_p2wpkh", "v0_p2wsh", "v1_p2tr"].includes(type)) return hex.slice(4);
+  return "";
+}
+function locktimeText(lt) {
+  if (lt === 0) return ["0", "Zaman kilidi yok"];
+  if (lt < 500000000) return [String(lt), `Blok ${fmt(lt)}'den önce bloğa giremez`];
+  return [String(lt), `${new Date(lt * 1000).toLocaleString("tr-TR")} öncesinde bloğa giremez`];
+}
+const seqHex = s => "0x" + (s >>> 0).toString(16).padStart(8, "0");
+function seqText(s) {
+  if (s === 0xffffffff) return "final (RBF yok)";
+  if (s === 0xfffffffe) return "locktime açık, RBF yok";
+  return "RBF işareti (BIP125)";
+}
+
+function kvHtml(pairs) {
+  return pairs.map(([k, v, d]) => `<div class="kv"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>${d ? `<div class="d">${esc(d)}</div>` : ""}</div>`).join("");
+}
+
+// ---------- adres görünümü ----------
+function buildReport(address, network, provider, utxos, stats) {
+  const rows = [...utxos].sort((a, b) => b.value - a.value);
+  let total = 0, conf = 0, confCount = 0;
+  const items = rows.map(u => {
+    const s = u.status || {}, ok = !!s.confirmed;
+    total += u.value; if (ok) { conf += u.value; confCount++; }
+    return { outpoint: `${u.txid}:${u.vout}`, txid: u.txid, vout: u.vout, value_sat: u.value, value_btc: btc(u.value),
+             confirmed: ok, block_height: s.block_height ?? null, block_time: s.block_time ?? null };
+  });
+  const header = { address, network, address_type: addressType(address), provider, fetched_at: new Date().toISOString(),
+    utxo_count: items.length, total_value_sat: total, total_value_btc: btc(total),
+    confirmed_utxo_count: confCount, confirmed_value_sat: conf, confirmed_value_btc: btc(conf),
+    unconfirmed_utxo_count: items.length - confCount, unconfirmed_value_sat: total - conf };
+  if (stats && stats.chain_stats) {
+    const c = stats.chain_stats;
+    header.address_stats = { tx_count: c.tx_count, total_received_sat: c.funded_txo_sum, total_received_btc: btc(c.funded_txo_sum),
+      total_spent_sat: c.spent_txo_sum, received_output_count: c.funded_txo_count, spent_output_count: c.spent_txo_count };
+  }
+  return { header, utxos: items };
+}
+
+async function loadAddress(address, network) {
+  const utxos = await withProvider(network, `/address/${address}/utxo`);
+  let stats = null;
+  try { stats = await getJson(`${state.base}/address/${address}`); } catch (_) {}
+  state.report = buildReport(address, network, state.base, utxos, stats);
+  const h = state.report.header, s = h.address_stats;
+  $("summary").innerHTML = kvHtml([
+    ["Adres", h.address], ["Ağ / tür", `${h.network} · ${h.address_type}`],
+    ["UTXO sayısı", `${fmt(h.utxo_count)} (onaylı ${fmt(h.confirmed_utxo_count)})`],
+    ["Toplam değer", `${h.total_value_btc} BTC`], ["Onaylı değer", `${h.confirmed_value_btc} BTC`],
+    ["Onaysız değer", `${btc(h.unconfirmed_value_sat)} BTC`],
+    ...(s ? [["İşlem sayısı", fmt(s.tx_count)], ["Toplam alınan", `${s.total_received_btc} BTC`], ["Toplam harcanan", `${btc(s.total_spent_sat)} BTC`]] : []),
+  ]);
+  const tbody = $("rows"); tbody.replaceChildren();
+  state.report.utxos.forEach((u, i) => {
+    const tr = document.createElement("tr"); tr.className = "click"; tr.tabIndex = 0;
+    tr.innerHTML = `<td>${i + 1}</td><td class="mono"><button type="button" class="link">${esc(u.outpoint)}</button><button type="button" class="copy">kopyala</button></td>
+      <td class="num">${u.value_btc}</td><td class="num">${fmt(u.value_sat)}</td>
+      <td><span class="tag ${u.confirmed ? "ok" : "warn"}">${u.confirmed ? "onaylı · blok " + u.block_height : "onaysız (mempool)"}</span></td>`;
+    tr.querySelector(".link").addEventListener("click", () => loadTxAndShow(u.txid));
+    tr.querySelector(".copy").addEventListener("click", e => copy(u.outpoint, e.target));
+    bindRow(tr, () => openDetail({ txid: u.txid, vout: u.vout }));
+    tbody.append(tr);
+  });
+  if (!utxos.length) showMsg("Bu adreste harcanmamış çıktı yok.");
+  $("addrView").hidden = false;
+}
+
+// ---------- işlem görünümü ----------
+async function loadTx(txid, network) {
+  const tx = await withProvider(network, `/tx/${txid}`);
+  state.txCache.set(txid, Promise.resolve(tx));
+  state.tx = tx;
+  const [outspends, tip] = await Promise.all([getJson(`${state.base}/tx/${txid}/outspends`).catch(() => null), getTip()]);
+
+  const vsize = Math.ceil(tx.weight / 4);
+  const isCoinbase = tx.vin.some(v => v.is_coinbase);
+  const segwit = tx.vin.some(v => v.witness && v.witness.length);
+  const rbf = tx.vin.some(v => v.sequence < 0xfffffffe);
+  const sumIn = isCoinbase ? null : tx.vin.reduce((a, v) => a + (v.prevout?.value || 0), 0);
+  const sumOut = tx.vout.reduce((a, o) => a + o.value, 0);
+  const conf = tx.status.confirmed && tip ? tip - tx.status.block_height + 1 : 0;
+  const [ltV, ltD] = locktimeText(tx.locktime);
+
+  $("txSummary").innerHTML = kvHtml([
+    ["txid", tx.txid, "İşlemin adı: imzalar hariç byte'larının SHA256d'si"],
+    ["Durum", tx.status.confirmed ? `Onaylı · blok ${fmt(tx.status.block_height)}` : "Onaysız (mempool)"],
+    ["Onay sayısı", tx.status.confirmed ? (conf ? fmt(conf) : "?") : "0"],
+    ["Blok zamanı", tx.status.block_time ? new Date(tx.status.block_time * 1000).toLocaleString("tr-TR") : "—"],
+    ["Blok hash", tx.status.block_hash || "—"],
+    ["Versiyon", String(tx.version), tx.version >= 2 ? "v2: göreli zaman kilitleri (BIP68) kullanılabilir" : ""],
+    ["Locktime", ltV, ltD],
+    ["Input / output", `${fmt(tx.vin.length)} / ${fmt(tx.vout.length)}`],
+    ["Boyut", `${fmt(tx.size)} byte`, "Ham byte uzunluğu (witness dahil)"],
+    ["Ağırlık", `${fmt(tx.weight)} WU`, "gövde ×4 + witness ×1"],
+    ["Sanal boyut", `${fmt(vsize)} vB`, "ağırlık ÷ 4"],
+    ["Fee", isCoinbase ? "— (coinbase)" : `${fmt(tx.fee)} sat`],
+    ["Fee oranı", isCoinbase ? "—" : `${(tx.fee / vsize).toFixed(2)} sat/vB`],
+    ["SegWit", segwit ? "Evet (witness var)" : "Hayır"],
+    ["RBF işareti", rbf ? "Evet" : "Hayır", "Bir input'un sequence'ı 0xfffffffe'den küçükse"],
+    ["Coinbase", isCoinbase ? "Evet: input yok, yeni para" : "Hayır"],
+  ]);
+  $("txFlow").innerHTML = isCoinbase
+    ? `<span>coinbase (yeni para + fee'ler)</span><span class="op">→</span><span>Σ output ${btc(sumOut)} BTC</span>`
+    : `<span>Σ input ${btc(sumIn)}</span><span class="op">−</span><span>Σ output ${btc(sumOut)}</span><span class="op">=</span>
+       <span>fee ${btc(sumIn - sumOut)} BTC</span>
+       <span class="${sumIn - sumOut === tx.fee ? "good" : "bad"}">${sumIn - sumOut === tx.fee ? "✓ API'nin fee'siyle aynı" : "✗ API fee'siyle uyuşmuyor"}</span>`;
+
+  const vinBody = $("vinRows"); vinBody.replaceChildren();
+  tx.vin.forEach((v, i) => {
+    const tr = document.createElement("tr");
+    if (v.is_coinbase) {
+      tr.innerHTML = `<td>${i}</td><td colspan="4"><span class="tag mute">coinbase: harcanan banknot yok</span></td><td class="mono">${seqHex(v.sequence)}</td>`;
+    } else {
+      const p = v.prevout || {};
+      tr.className = "click"; tr.tabIndex = 0;
+      tr.innerHTML = `<td>${i}</td><td class="mono">${esc(v.txid.slice(0, 16))}…:${v.vout}</td>
+        <td class="mono">${esc(p.scriptpubkey_address || "—")}</td><td>${esc(shortType(p.scriptpubkey_type))}</td>
+        <td class="num">${btc(p.value || 0)}</td><td class="mono">${seqHex(v.sequence)}</td>`;
+      bindRow(tr, () => openDetail({ txid: v.txid, vout: v.vout, spender: { tx, index: i } }));
+    }
+    vinBody.append(tr);
+  });
+
+  const voutBody = $("voutRows"); voutBody.replaceChildren();
+  tx.vout.forEach((o, n) => {
+    const sp = outspends ? outspends[n] : null;
+    const status = o.scriptpubkey_type === "op_return" ? `<span class="tag mute">harcanamaz</span>`
+      : !sp ? `<span class="tag mute">bilinmiyor</span>`
+      : sp.spent ? `<span class="tag bad">harcanmış</span>` : `<span class="tag ok">UTXO (harcanmamış)</span>`;
+    const tr = document.createElement("tr"); tr.className = "click"; tr.tabIndex = 0;
+    tr.innerHTML = `<td>${n}</td><td class="mono">${esc(o.scriptpubkey_address || (o.scriptpubkey_type === "op_return" ? "OP_RETURN (veri)" : "—"))}</td>
+      <td>${esc(shortType(o.scriptpubkey_type))}</td><td class="num">${btc(o.value)}</td><td class="num">${fmt(o.value)}</td><td>${status}</td>`;
+    bindRow(tr, () => openDetail({ txid: tx.txid, vout: n }));
+    voutBody.append(tr);
+  });
+
+  $("txJson").textContent = JSON.stringify(tx, null, 2);
+  $("txHex").textContent = "yükleniyor…";
+  getText(`${state.base}/tx/${txid}/hex`).then(h => ($("txHex").textContent = h)).catch(() => ($("txHex").textContent = "alınamadı"));
+  $("txView").hidden = false;
+}
+
+// ---------- ayrıntı penceresi ----------
+let lastFocus = null, detailSeq = 0;
+
+function bindRow(tr, fn) {
+  tr.addEventListener("click", e => { if (!e.target.closest("a, button")) fn(); });
+  tr.addEventListener("keydown", e => { if (e.key === "Enter" && e.target === tr) fn(); });
+}
+
+function witnessLabels(type, witness, v) {
+  const n = witness.length;
+  if (type === "v0_p2wpkh" && n === 2) return ["İmza (DER + sighash)", "Public key (33 byte)"];
+  if (type === "v1_p2tr" && n === 1) return ["Schnorr imzası (key path)"];
+  if (type === "v1_p2tr") return witness.map((_, i) => i === n - 1 ? "Control block (ağaç kanıtı)" : i === n - 2 ? "Kullanılan script (dal)" : `Script girdisi ${i + 1}`);
+  if (type === "v0_p2wsh" || v.inner_witnessscript_asm) return witness.map((_, i) => i === n - 1 ? "Witness script (koşulun tamamı)" : witness[i] === "" ? "Boş (CHECKMULTISIG hatası için)" : `İmza / girdi ${i + 1}`);
+  if (type === "p2sh" && n === 2) return ["İmza (DER + sighash)", "Public key (33 byte)"];
+  return witness.map((_, i) => `Öğe ${i}`);
+}
+
+function unlockHtml(v, prev) {
+  const type = prev.scriptpubkey_type;
+  const parts = [];
+  if (v.scriptsig) parts.push(`<div class="wit"><div class="k">scriptSig</div><div class="v">${esc(v.scriptsig_asm || v.scriptsig)}</div></div>`);
+  if (v.inner_redeemscript_asm) {
+    const r = v.inner_redeemscript_asm;
+    const what = r.startsWith("OP_0 OP_PUSHBYTES_20") ? "Zarfın içinden tek anahtarlı SegWit çıktı: P2SH-P2WPKH (wrapped SegWit)"
+      : r.startsWith("OP_0 OP_PUSHBYTES_32") ? "Zarfın içinden SegWit koşulu çıktı: P2SH-P2WSH"
+      : r.includes("OP_CHECKMULTISIG") ? "Zarfın içinden multisig koşulu çıktı" : "";
+    if (what) parts.push(`<p style="margin:0 0 8px;font-weight:600">${what}</p>`);
+    parts.push(`<div class="wit"><div class="k">Redeem script (P2SH koşulu)</div><div class="v">${esc(r)}</div></div>`);
+  }
+  if (v.witness && v.witness.length) {
+    const labels = witnessLabels(type, v.witness, v);
+    parts.push(`<div class="wit">${v.witness.map((w, i) => `<div class="k">witness[${i}] · ${esc(labels[i])}</div><div class="v">${esc(w || "(boş)")} <span class="hint">${w.length / 2} byte</span></div>`).join("")}</div>`);
+  }
+  if (v.inner_witnessscript_asm) parts.push(`<div class="wit"><div class="k">Witness script (okunur)</div><div class="v">${esc(v.inner_witnessscript_asm)}</div></div>`);
+  parts.push(`<div class="wit"><div class="k">Sequence</div><div class="v">${seqHex(v.sequence)} · ${seqText(v.sequence)}</div></div>`);
+  return parts.join("");
+}
+
+async function openDetail({ txid, vout, spender }) {
+  const seq = ++detailSeq;
+  lastFocus = document.activeElement;
+  $("m-title").textContent = spender ? `Input #${spender.index}: harcanan banknot` : "Banknot (output) ayrıntısı";
+  $("m-op").textContent = `${txid}:${vout}`;
+  $("m-body").innerHTML = `<p class="hint">Ayrıntılar yükleniyor…</p>`;
+  $("backdrop").hidden = false; document.body.style.overflow = "hidden"; $("m-close").focus();
+
+  try {
+    const [tx, spend, tip] = await Promise.all([
+      getTx(txid),
+      getJson(`${state.base}/tx/${txid}/outspend/${vout}`).catch(() => null),
+      getTip(),
+    ]);
+    if (seq !== detailSeq) return;
+
+    const out = tx.vout[vout];
+    const lock = lockOf(out.scriptpubkey_type);
+    const payload = lockPayload(out.scriptpubkey_type, out.scriptpubkey);
+    const vsize = Math.ceil(tx.weight / 4);
+    const conf = tx.status.confirmed && tip ? tip - tx.status.block_height + 1 : 0;
+    const isCoinbase = tx.vin.some(v => v.is_coinbase);
+    const isUtxo = spend && !spend.spent && out.scriptpubkey_type !== "op_return";
+
+    const spentHtml = out.scriptpubkey_type === "op_return" ? `<span class="hint">OP_RETURN harcanamaz</span>`
+      : !spend ? `<span class="hint">kontrol edilemedi</span>`
+      : spend.spent ? `<span class="bad">Harcanmış</span>: işlem <button type="button" class="link" data-go="${esc(spend.txid)}">${esc(spend.txid.slice(0, 16))}…</button>, input #${spend.vin}`
+      : `<span class="good">Harcanmamış</span>: bu banknot şu an bir UTXO`;
+
+    let html = `
+      <div class="sec"><h4>${isUtxo ? "Kim harcayabilir? (kilit)" : "Kilit: kim harcayabilirdi?"}</h4>
+        <div class="lock">
+          <div class="who">${esc(lock.who)}</div>
+          <div class="addr">${esc(out.scriptpubkey_address || "adres biçimi yok")}</div>
+          <div class="hint">Kilit türü: ${esc(lock.name)}</div>
+          <p>${lock.how(esc(payload))}</p>
+        </div>
+      </div>`;
+
+    if (spender) {
+      const v = spender.tx.vin[spender.index];
+      html += `
+      <div class="sec"><h4>Kilidi açan veri (bu işlemin input #${spender.index}'ı)</h4>
+        <div class="lock unl">${unlockHtml(v, out)}</div>
+      </div>`;
+    }
+
+    html += `
+      <div class="sec"><h4>Banknot</h4>
+        <div class="grid">${kvHtml([
+          ["Miktar", btc(out.value) + " BTC"], ["Satoshi", fmt(out.value)],
+          ["Doğduğu blok", tx.status.confirmed ? fmt(tx.status.block_height) : "Onaysız (mempool)"],
+          ["Onay sayısı", tx.status.confirmed ? (conf ? fmt(conf) : "?") : "0"],
+          ["Blok zamanı", tx.status.block_time ? new Date(tx.status.block_time * 1000).toLocaleString("tr-TR") : "—"],
+          ["Coinbase'ten mi?", isCoinbase ? "Evet (100 blok bekler)" : "Hayır"],
+        ])}</div>
+        <p style="margin:10px 0 0;font-size:.9rem">Harcanma durumu: ${spentHtml}</p>
+      </div>
+
+      <div class="sec"><h4>Kilit byte'ları (scriptPubKey)</h4>
+        <pre class="code">${esc(out.scriptpubkey)}</pre>
+        <pre class="code">${esc(out.scriptpubkey_asm)}</pre>
+      </div>
+
+      <div class="sec"><h4>Doğuran işlem</h4>
+        <div class="grid">${kvHtml([
+          ["txid", tx.txid], ["Bu banknotun sırası", `vout ${vout} / ${tx.vout.length} output`],
+          ["Input sayısı", fmt(tx.vin.length)], ["Fee", isCoinbase ? "—" : `${fmt(tx.fee)} sat`],
+          ["Boyut", `${fmt(vsize)} vB (${fmt(tx.weight)} WU)`], ["Fee oranı", isCoinbase ? "—" : `${(tx.fee / vsize).toFixed(2)} sat/vB`],
+        ])}</div>
+        <p style="margin:12px 0 0;display:flex;gap:14px;flex-wrap:wrap">
+          <button type="button" class="link" data-go="${esc(tx.txid)}">Bu işlemi gezginde aç</button>
+          <a href="${EXPLORER[state.network]}/tx/${esc(tx.txid)}" target="_blank" rel="noopener">mempool.space'te aç ↗</a>
+        </p>
+      </div>`;
+
+    $("m-body").innerHTML = html;
+    $("m-body").querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => { closeDetail(); loadTxAndShow(b.dataset.go); }));
+  } catch (err) {
+    if (seq === detailSeq) $("m-body").innerHTML = `<div class="msg err">Hata: ${esc(err.message)}</div>`;
+  }
+}
+
+function closeDetail() {
+  $("backdrop").hidden = true; document.body.style.overflow = "";
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+}
+$("m-close").addEventListener("click", closeDetail);
+$("backdrop").addEventListener("click", e => { if (e.target.id === "backdrop") closeDetail(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("backdrop").hidden) closeDetail(); });
+
+// ---------- genel ----------
+async function copy(text, btn) {
+  try { await navigator.clipboard.writeText(text); btn.textContent = "kopyalandı"; }
+  catch { btn.textContent = "kopyalanamadı"; }
+  setTimeout(() => (btn.textContent = "kopyala"), 1200);
+}
+function showMsg(text, isErr) {
+  const m = $("msg"); m.textContent = text; m.className = "msg" + (isErr ? " err" : ""); m.hidden = !text;
+}
+function download(name, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const stamp = () => new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+
+async function run(query) {
+  const network = $("net").value;
+  if (network !== state.network) state.txCache.clear();
+  state.network = network;
+  $("go").disabled = true; $("addrView").hidden = true; $("txView").hidden = true;
+  showMsg("Sorgulanıyor…");
+  try {
+    if (isTxid(query)) await loadTx(query.toLowerCase(), network);
+    else await loadAddress(query, network);
+    if ($("msg").textContent === "Sorgulanıyor…") showMsg("");
+    window.scrollTo({ top: 0 });
+  } catch (err) {
+    showMsg("Hata: " + err.message, true);
+  } finally {
+    $("go").disabled = false;
+  }
+}
+function loadTxAndShow(txid) { $("q").value = txid; run(txid); }
+
+$("form").addEventListener("submit", e => { e.preventDefault(); const q = $("q").value.trim(); if (q) run(q); });
+$("dl").addEventListener("click", () => state.report && download(`utxos_${state.report.header.address}_${stamp()}.json`, state.report));
+$("dlTx").addEventListener("click", () => state.tx && download(`tx_${state.tx.txid}_${stamp()}.json`, state.tx));
+</script>
+</body>
+</html>

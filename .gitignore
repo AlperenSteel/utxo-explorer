@@ -1,0 +1,15 @@
+# Araçtan indirilen / üretilen sonuç dosyaları (sorguladığın adresleri içerir)
+utxos_*.json
+tx_*.json
+*.out.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# İşletim sistemi / editör
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
