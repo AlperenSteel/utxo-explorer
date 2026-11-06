@@ -3,71 +3,201 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UTXO ve İşlem Gezgini</title>
+<title>UTXO Gezgini</title>
+<link rel="stylesheet" href="anatomi.css">
 <style>
   :root {
-    --bg: #f5f6f8; --surface: #ffffff; --fg: #15191f; --muted: #5d6573; --line: #dde1e7;
-    --accent: #2a6fdb; --ok: #2e8b4a; --warn: #b7791f; --err: #c0392b;
+    --bg: #f7f7f8; --surface: #ffffff; --sunken: #f1f2f4; --fg: #14171c; --muted: #6b7280; --line: #e6e8ec;
+    --accent: #f7931a; --accent-fg: #ffffff; --accent-ink: #b85c00; --info: #2563eb; --ok: #15803d; --warn: #b45309; --err: #c2410c;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+    --shadow-lg: 0 8px 30px rgba(16,24,40,.08);
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --r: 14px;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #0f1216; --surface: #171b21; --fg: #e6e9ee; --muted: #98a1ae; --line: #2a3039;
-            --accent: #5b9cff; --ok: #4cc06e; --warn: #e0a83a; --err: #ff6b5e; }
+    :root { --bg: #0d0f12; --surface: #15181d; --sunken: #1b1f25; --fg: #e8eaee; --muted: #8b93a1; --line: #262b33;
+            --accent: #f7931a; --accent-fg: #ffffff; --accent-ink: #ffb054; --info: #6b9dff; --ok: #4ade80; --warn: #fbbf24; --err: #fb7a55;
+            --shadow: 0 1px 2px rgba(0,0,0,.3); --shadow-lg: 0 8px 30px rgba(0,0,0,.35); }
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); }
-  main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
-  h1 { margin: 0; font-size: 1.4rem; font-weight: 600; }
-  .sub { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
-  a { color: var(--accent); }
-  form { display: flex; gap: 8px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
-  input, select, button { font: inherit; border-radius: 8px; border: 1px solid var(--line); padding: 8px 12px; background: var(--bg); color: var(--fg); }
-  input { flex: 1 1 380px; min-width: 0; font-family: var(--mono); font-size: .9rem; }
-  button { cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.link { border: none; background: none; color: var(--accent); padding: 0; cursor: pointer; font: inherit; text-decoration: underline; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent-ink); text-decoration: none; } a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); font-size: .85em; }
+
+  /* üst bölüm: anasayfada ortada büyük arama, sonuçta üstte ince çubuk */
+  .top { padding: 0 16px; }
+  body:not(.results) .top { background: radial-gradient(ellipse 70% 55% at 50% 30%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 70%); }
+  h1 .hl { color: var(--accent); }
+  .logo { box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
+  .top-in { max-width: 900px; margin: 0 auto; min-height: 88vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 18px; padding: 48px 0 24px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; border: 0; background: none; padding: 0; color: var(--fg); font: 600 1rem var(--sans); cursor: pointer; }
+  .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--accent); color: var(--accent-fg); font-weight: 700; font-size: 1rem; }
+  h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.15; font-weight: 650; letter-spacing: -.02em; }
+  .sub { margin: 0; color: var(--muted); font-size: 1rem; max-width: 560px; }
+  form, .examples { max-width: 720px; }
+  form { width: 100%; display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px; box-shadow: var(--shadow-lg); transition: border-color .15s, box-shadow .15s; }
+  form:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent), var(--shadow-lg); }
+  form input { flex: 1; min-width: 0; border: 0; background: none; padding: 10px 14px; font: .92rem var(--mono); color: var(--fg); outline: none; }
+  form select { border: 0; background: var(--sunken); border-radius: 999px; padding: 8px 12px; font: .85rem var(--sans); color: var(--muted); cursor: pointer; }
+  form button.primary { border-radius: 999px; padding: 9px 20px; }
+  .examples { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; font-size: .85rem; color: var(--muted); align-items: center; }
+  .ex { border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 5px 12px; font-size: .82rem; cursor: pointer; transition: border-color .15s, background .15s; }
+  .ex:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+
+  body.results .top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--line); }
+  body.results .top-in { max-width: 1100px; min-height: 0; flex-direction: row; text-align: left; gap: 16px; padding: 10px 0; }
+  body.results .top-in > :not(.brand):not(form):not(#present):not(#sections) { display: none; }
+  body:not(.results) #sections { display: none; }
+  .sections { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--sunken); }
+  .sections a { padding: 5px 14px; border-radius: 999px; font-size: .86rem; font-weight: 500; color: var(--muted); text-decoration: none; }
+  .sections a:hover { color: var(--fg); text-decoration: none; }
+  .sections a[aria-current="page"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+  body.anat main > #msg, body.anat #loading { display: none; }
+
+  /* anasayfa: anatomi kapıları */
+  .paths { width: 100%; max-width: 900px; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 26px; text-align: left; }
+  .paths-h { grid-column: 1 / -1; font-weight: 600; font-size: .95rem; display: flex; gap: 10px; align-items: baseline; }
+  .paths-h span { color: var(--muted); font-weight: 400; font-size: .86rem; }
+  .path { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); color: var(--fg); text-decoration: none; box-shadow: var(--shadow); transition: border-color .15s, transform .15s, box-shadow .15s; }
+  .path:hover { text-decoration: none; border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .path .pk { font-size: .74rem; font-weight: 600; letter-spacing: .04em; color: var(--accent-ink); }
+  .path b { font-family: var(--mono); font-size: 1.05rem; }
+  .path .pd { font-size: .82rem; color: var(--muted); }
+  .anat-link { display: inline-block; margin-top: 10px; font-size: .88rem; font-weight: 500; }
+  body.results #present { order: 3; }
+  body.results .brand .name { white-space: nowrap; }
+  body.results form { max-width: 600px; margin-left: auto; box-shadow: none; padding: 4px; }
+  body.results form input { padding: 7px 12px; }
+  body.results form button.primary { padding: 7px 16px; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 56px; display: flex; flex-direction: column; gap: 16px; }
+  body:not(.results) main { padding-top: 0; }
+  section { display: flex; flex-direction: column; gap: 16px; }
+  footer { max-width: 1100px; margin: 0 auto; padding: 0 16px 28px; text-align: center; color: var(--muted); font-size: .78rem; letter-spacing: .02em; }
+  body:not(.results) footer { padding-top: 8px; }
+
+  input, select, button { font: inherit; border-radius: 10px; border: 1px solid var(--line); padding: 7px 12px; background: var(--surface); color: var(--fg); }
+  button { cursor: pointer; font-size: .86rem; transition: background .15s, border-color .15s; }
+  button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--fg) 25%, var(--line)); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #e8850f; border-color: #e8850f; }
+  button.link { border: none; background: none; color: var(--accent-ink); padding: 0; cursor: pointer; font: inherit; }
+  button.link:hover { text-decoration: underline; }
   button:disabled { opacity: .5; cursor: default; }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .msg { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
-  .msg.err { border-color: var(--err); color: var(--err); }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-  .card h2 { margin: 0 0 10px; font-size: 1rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 18px; }
-  .kv .k { color: var(--muted); font-size: .8rem; }
+  button:focus-visible, select:focus-visible, .ex:focus-visible, .brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .msg { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+  .msg.err { border-color: color-mix(in srgb, var(--err) 40%, var(--line)); background: color-mix(in srgb, var(--err) 6%, var(--surface)); color: var(--err); }
+  body:not(.results) #msg { max-width: 720px; width: 100%; margin: 0 auto; text-align: center; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 20px; box-shadow: var(--shadow); }
+  .card h2 { margin: 0 0 14px; font-size: 1.02rem; font-weight: 600; letter-spacing: -.01em; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 22px; }
+  .kv .k { color: var(--muted); font-size: .76rem; margin-bottom: 2px; }
   .kv .v { font-family: var(--mono); font-size: .9rem; word-break: break-all; font-variant-numeric: tabular-nums; }
-  .kv .d { color: var(--muted); font-size: .78rem; }
-  .tbl { overflow-x: auto; }
+  .kv .d { color: var(--muted); font-size: .78rem; margin-top: 2px; }
+  .tbl { overflow-x: auto; margin: 0 -20px; padding: 0 20px; }
   table { width: 100%; border-collapse: collapse; font-size: .86rem; min-width: 760px; }
-  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
   th { color: var(--muted); font-weight: 500; font-size: .78rem; }
   td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
   td.mono { font-family: var(--mono); font-size: .8rem; }
-  tbody tr.click { cursor: pointer; }
-  tbody tr.click:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  tbody tr.click { cursor: pointer; transition: background .12s; }
+  tbody tr.click:hover { background: var(--sunken); }
   tbody tr.click:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .tag { font-size: .75rem; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+  .tag { display: inline-block; font-size: .74rem; font-weight: 500; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); }
   .tag.ok { color: var(--ok); } .tag.warn { color: var(--warn); } .tag.bad { color: var(--err); } .tag.mute { color: var(--muted); }
-  .copy { padding: 2px 8px; font-size: .75rem; margin-left: 6px; }
-  .hint { color: var(--muted); font-size: .82rem; font-weight: 400; }
-  .note { color: var(--muted); font-size: .82rem; }
-  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; font-family: var(--mono); font-size: .88rem; }
+  .copy { padding: 1px 8px; font-size: .7rem; margin-left: 6px; border-radius: 999px; color: var(--muted); vertical-align: 1px; }
+  .hint { color: var(--muted); font-size: .82rem; font-weight: 400; letter-spacing: 0; }
+  .note { color: var(--muted); font-size: .8rem; }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; padding: 12px 14px; background: var(--sunken); border-radius: 10px; font-family: var(--mono); font-size: .88rem; }
   .flow .op { color: var(--muted); }
-  details { margin-top: 4px; }
-  summary { cursor: pointer; color: var(--accent); font-size: .88rem; }
-  pre.code { margin: 6px 0 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: .8rem/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
+  details { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+  details:first-of-type { border-top: 0; padding-top: 0; }
+  summary { cursor: pointer; color: var(--fg); font-size: .9rem; font-weight: 500; padding: 4px 0; }
+  summary:hover { color: var(--accent-ink); }
+  pre.code { margin: 8px 0 0; padding: 10px 12px; background: var(--sunken); border: 1px solid var(--line); border-radius: 10px; font: .8rem/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
 
-  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; z-index: 10; }
-  .modal { background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; width: 100%; max-width: 780px; padding: 18px 20px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+  /* yükleniyor */
+  .loading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--muted); font-size: .9rem; }
+  .spin { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .skel { flex-basis: 100%; display: grid; gap: 14px; }
+  .skel i { display: block; height: 120px; border-radius: var(--r); background: linear-gradient(90deg, var(--surface) 0%, var(--sunken) 50%, var(--surface) 100%); background-size: 200% 100%; border: 1px solid var(--line); animation: shimmer 1.4s ease-in-out infinite; }
+  .skel i:nth-child(2) { height: 200px; } .skel i:nth-child(3) { height: 90px; }
+  @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+  @media (prefers-reduced-motion: reduce) { .spin, .skel i { animation: none; } }
+  .msg.info { color: var(--fg); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+
+  /* akış şeması */
+  .sankey { overflow-x: auto; margin: 0 -20px; padding: 0 20px; }
+  .sankey svg { display: block; width: 100%; min-width: 760px; height: auto; font-family: var(--sans); }
+  .band { opacity: .55; transition: opacity .15s; }
+  .b-in, .b-more { fill: var(--muted); opacity: .3; }
+  .b-coinbase { fill: var(--accent); opacity: .45; }
+  .b-out { fill: var(--accent); }
+  .b-out.utxo { fill: var(--ok); opacity: .45; }
+  .b-data { fill: var(--muted); }
+  .b-fee { fill: var(--warn); opacity: .35; }
+  .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; transition: stroke .15s, fill .15s; }
+  .node .t1 { font-size: 14px; font-weight: 600; fill: var(--fg); font-family: var(--mono); }
+  .node .t2 { font-size: 11.5px; fill: var(--muted); }
+  .node.k-in rect, .node.k-more rect { fill: var(--sunken); }
+  .node.k-in .t1 { fill: var(--muted); }
+  .node.k-coinbase rect { stroke: var(--accent); fill: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+  .node.k-out rect { stroke: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  .node.utxo rect { stroke: color-mix(in srgb, var(--ok) 60%, var(--line)); }
+  .node.k-fee rect { stroke: var(--warn); stroke-dasharray: 4 3; }
+  .node.k-fee .t1, .node.k-coinbase .t1, .node.k-more .t1 { font-family: var(--sans); }
+  .node.clickable { cursor: pointer; outline: none; }
+  .node.clickable:hover rect, .node.clickable:focus-visible rect { stroke: var(--accent); stroke-width: 2; }
+  .txnode rect { fill: var(--fg); }
+  .txnode .t1 { fill: var(--bg); font-size: 15px; font-weight: 700; }
+  .txnode .t2 { fill: color-mix(in srgb, var(--bg) 70%, var(--fg)); font-size: 11.5px; font-family: var(--mono); }
+
+  /* UTXO daire haritası */
+  .bubbles { position: relative; background: var(--sunken); border-radius: 12px; padding: 14px; }
+  .bubbles svg { display: block; width: 100%; height: auto; max-height: 480px; overflow: visible; }
+  .bub { cursor: pointer; transform-box: fill-box; transform-origin: center; animation: pop .45s cubic-bezier(.3,1.5,.6,1) backwards; transition: opacity .15s; }
+  .bub.unconf { stroke: var(--ok); stroke-width: 1.5; stroke-dasharray: 3 2; fill-opacity: .5; }
+  .bubbles svg:hover .bub { opacity: .8; }
+  @keyframes pop { from { transform: scale(0); opacity: 0; } }
+  .bub-hl { pointer-events: none; transform-box: fill-box; transform-origin: center; transform: scale(1); opacity: 0; transition: transform .18s cubic-bezier(.3,1.6,.6,1), opacity .12s; stroke: var(--surface); stroke-width: 2; filter: drop-shadow(0 3px 8px rgba(0,0,0,.35)); }
+  .bub-hl.on { opacity: 1; transform: scale(1.45); }
+  .tip { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; display: flex; flex-direction: column; gap: 1px; padding: 8px 11px; border-radius: 10px; background: var(--fg); color: var(--bg); font-size: .8rem; box-shadow: var(--shadow-lg); white-space: nowrap; }
+  .tip b { font-family: var(--mono); font-size: .9rem; }
+  .tip span { opacity: .8; } .tip .mono { font-family: var(--mono); font-size: .75rem; }
+  @media (prefers-reduced-motion: reduce) { .bub { animation: none; } .bub-hl { transition: none; } }
+
+  /* sunum modu düğmesi ve büyütme */
+  .ghost { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: .82rem; color: var(--muted); white-space: nowrap; }
+  .ghost[aria-pressed="true"] { color: var(--accent-ink); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  body:not(.results) #present { position: absolute; top: 18px; right: 18px; }
+  .top { position: relative; }
+  body.present { zoom: 1.25; }
+  body.present .hint, body.present .note, body.present .kv .d { font-size: .88rem; }
+
+  @media (max-width: 640px) {
+    #present { display: none; }
+    body.results .brand .name { display: none; }
+    body.results form select { display: none; }
+    body.results #sections { display: none; }
+    form select { padding: 8px 8px; }
+    .card { padding: 16px; } .tbl { margin: 0 -16px; padding: 0 16px; }
+  }
+
+  .backdrop { position: fixed; inset: 0; background: rgba(10,12,16,.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; z-index: 10; }
+  .modal { background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 18px; width: 100%; max-width: 780px; padding: 22px 24px 24px; box-shadow: 0 24px 60px rgba(0,0,0,.25); }
   .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   .modal-head h3 { margin: 0; font-size: 1.1rem; font-weight: 600; }
   .modal-head .opid { font-family: var(--mono); font-size: .8rem; color: var(--muted); word-break: break-all; margin-top: 2px; }
-  .x { font-size: 1.1rem; line-height: 1; padding: 4px 10px; }
+  .x { font-size: 1.2rem; line-height: 1; width: 34px; height: 34px; padding: 0; border-radius: 999px; }
   .sec { margin-top: 16px; }
   .sec h4 { margin: 0 0 8px; font-size: .82rem; color: var(--muted); font-weight: 500; }
-  .lock { border: 1px solid var(--accent); border-radius: 10px; padding: 12px 14px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
-  .lock.unl { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 6%, transparent); }
+  .lock { border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); border-radius: 12px; padding: 12px 14px; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .lock.unl { border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); background: color-mix(in srgb, var(--ok) 6%, transparent); }
   .lock .who { font-size: 1rem; font-weight: 600; }
   .lock .addr { font-family: var(--mono); font-size: .9rem; word-break: break-all; margin: 4px 0 8px; }
   .lock p { margin: 6px 0 0; font-size: .9rem; }
@@ -75,26 +205,83 @@
   .wit .k { color: var(--muted); }
   .wit .v { font-family: var(--mono); font-size: .8rem; word-break: break-all; }
   .good { color: var(--ok); } .bad { color: var(--err); }
+
+  /* ham byte çözümleyici */
+  :root { --k-meta: #7b5cd6; --k-mark: #6b7280; --k-count: #8a8f98; --k-prev: #2a6fdb; --k-script: #d9480f; --k-seq: #0f8b8d; --k-value: #2e8b4a; --k-wit: #b7791f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --k-meta: #a78bfa; --k-mark: #9ca3af; --k-count: #8b93a1; --k-prev: #5b9cff; --k-script: #ff8a4c; --k-seq: #3cc8c8; --k-value: #4cc06e; --k-wit: #e0a83a; }
+  }
+  .k-meta { --k: var(--k-meta); } .k-mark { --k: var(--k-mark); } .k-count { --k: var(--k-count); } .k-prev { --k: var(--k-prev); }
+  .k-script { --k: var(--k-script); } .k-seq { --k: var(--k-seq); } .k-value { --k: var(--k-value); } .k-wit { --k: var(--k-wit); }
+  pre.hex { line-height: 1.9; }
+  .hb { background: color-mix(in srgb, var(--k) 16%, transparent); border-bottom: 2px solid var(--k); border-radius: 2px; margin-right: 3px; cursor: pointer; }
+  .hb.hl { outline: 2px solid var(--fg); outline-offset: 1px; }
+  .chip { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--k); margin-right: 6px; vertical-align: middle; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .78rem; color: var(--muted); margin: 8px 0 0; }
+  .checks { list-style: none; padding: 0; margin: 8px 0 0; font-size: .86rem; display: flex; flex-direction: column; gap: 3px; }
+  .checks code { font-family: var(--mono); font-size: .78rem; word-break: break-all; }
+  .tbl.scroll { max-height: 460px; overflow: auto; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; }
+  table.fields { min-width: 680px; }
+  table.fields th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  table.fields tr[data-f] { cursor: pointer; scroll-margin-top: 36px; }
+  table.fields tr.hl td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  table.fields tr.grp td { background: var(--bg); color: var(--muted); font-weight: 600; font-size: .78rem; }
+  td.wrap { white-space: normal; word-break: break-all; min-width: 280px; }
+  td.wrap .mono { font-family: var(--mono); font-size: .8rem; }
+
+  /* açıklamalı JSON */
+  pre.tall { max-height: 560px; word-break: normal; overflow-wrap: anywhere; }
+  .j-k { color: var(--info); } .j-s { color: var(--ok); } .j-n { color: var(--warn); } .j-b { color: var(--err); }
+  .j-c { color: var(--muted); font-style: italic; }
+  .src { font: .68rem var(--sans); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; white-space: nowrap; }
+  .s-raw { color: var(--ok); } .s-der { color: var(--info); } .s-chain { color: var(--warn); }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; cursor: pointer; }
+  .toggle input { flex: none; padding: 0; margin: 0; }
 </style>
 </head>
 <body>
+<header class="top">
+  <div class="top-in">
+    <button class="brand" id="home" type="button" aria-label="Anasayfa"><span class="logo">₿</span><span class="name">UTXO Gezgini</span></button>
+    <nav class="sections" id="sections" aria-label="Bölüm">
+      <a href="#" data-s="zincir">Zincir</a>
+      <a href="#anatomi/legacy" data-s="anatomi">Anatomi</a>
+    </nav>
+    <button class="ghost" id="present" type="button" aria-pressed="false" title="Sunum modu (P): her şeyi büyütür">Sunum modu</button>
+    <h1>Bitcoin'in <span class="hl">banknotlarına</span> yakından bak</h1>
+    <p class="sub">Canlı zincirde adresler, işlemler ve UTXO'lar; aynı ödemenin üç kilit türüyle anatomisi.</p>
+    <form id="form">
+      <input id="q" placeholder="Adres ya da txid ara…" autocomplete="off" spellcheck="false" required aria-label="Adres ya da txid">
+      <select id="net" aria-label="Ağ">
+        <option value="mainnet">mainnet</option>
+        <option value="testnet">testnet</option>
+        <option value="signet">signet</option>
+      </select>
+      <button class="primary" id="go" type="submit">Ara</button>
+    </form>
+    <div class="examples">
+      <span>Örnekler:</span>
+      <button type="button" class="ex" data-q="b222e767c4f9cd6324b341c6810560e2494721e20f5647ea0e46f81d2f71c12e">SegWit işlem</button>
+      <button type="button" class="ex" data-q="d553fb33b1eb48da4e0873e8004c801c787ed4fb6970689724bca4b300e0a8ba">Coinbase işlem</button>
+      <button type="button" class="ex" data-q="12cbQLTFMXRnSzktFkuoG3eHoMeFtpTu3S">Hal Finney'nin adresi</button>
+      <button type="button" class="ex" data-q="1AfCc4F9c4VTYSE31PUe2kUEKs6ZxiDjxm">Alperen'in adresi</button>
+    </div>
+    <div class="paths">
+      <div class="paths-h">İşlem anatomisi <span>aynı ödeme, üç kilit türü</span></div>
+      <a class="path" href="#anatomi/legacy"><span class="pk">Legacy</span><b>P2PKH</b><span class="pd">İmza scriptSig'de; miktar imzalanmıyor</span></a>
+      <a class="path" href="#anatomi/segwit"><span class="pk">SegWit v0</span><b>P2WPKH</b><span class="pd">BIP143: kendi miktarı imzaya giriyor</span></a>
+      <a class="path" href="#anatomi/taproot"><span class="pk">Taproot</span><b>P2TR</b><span class="pd">BIP341: bütün miktarlar ve kilitler</span></a>
+      <a class="path" href="#anatomi/hangi-input"><span class="pk">Saldırı</span><b>İmza kopyalama</b><span class="pd">input_index neden mesajda?</span></a>
+    </div>
+  </div>
+</header>
+
 <main>
-  <header>
-    <h1>UTXO ve İşlem Gezgini</h1>
-    <p class="sub">Bir <b>adres</b> girersen harcanmamış çıktılarını, bir <b>txid</b> (64 hex) girersen işlemin bütün alanlarını gösterir. Veriler public Esplora API'sinden gelir (mempool.space, yedek: blockstream.info). Satırlara tıklayınca ayrıntı penceresi açılır.</p>
-  </header>
-
-  <form id="form">
-    <input id="q" placeholder="Adres (bc1q… / 3… / 1…) ya da txid (64 hex)" autocomplete="off" spellcheck="false" required>
-    <select id="net" aria-label="Ağ">
-      <option value="mainnet">mainnet</option>
-      <option value="testnet">testnet</option>
-      <option value="signet">signet</option>
-    </select>
-    <button class="primary" id="go" type="submit">Sorgula</button>
-  </form>
-
   <div id="msg" class="msg" hidden></div>
+  <div id="loading" class="loading" hidden aria-live="polite">
+    <span class="spin"></span>Zincirden okunuyor…
+    <div class="skel"><i></i><i></i><i></i></div>
+  </div>
 
   <!-- ADRES GÖRÜNÜMÜ -->
   <section id="addrView" hidden>
@@ -102,8 +289,12 @@
       <h2>Adres özeti <button id="dl" type="button">JSON indir</button></h2>
       <div class="grid" id="summary"></div>
     </div>
-    <div class="card" style="margin-top:14px">
-      <h2>UTXO listesi <span class="hint">Ayrıntı için bir satıra tıkla</span></h2>
+    <div class="card">
+      <h2>Harcanmamış çıktılar</h2>
+      <div class="bubbles" id="bubbles"><div class="tip" id="bubbleTip" hidden></div></div>
+    </div>
+    <div class="card">
+      <h2>UTXO listesi</h2>
       <div class="tbl"><table>
         <thead><tr><th>#</th><th>Outpoint (txid:vout)</th><th style="text-align:right">BTC</th><th style="text-align:right">sat</th><th>Durum</th></tr></thead>
         <tbody id="rows"></tbody>
@@ -118,25 +309,102 @@
       <div class="grid" id="txSummary"></div>
       <div class="flow" id="txFlow"></div>
     </div>
-    <div class="card" style="margin-top:14px">
-      <h2>Girişler (inputs) <span class="hint">Her giriş, harcanan eski bir banknot. Tıkla: banknot + kilidi açan veri</span></h2>
+    <div class="card">
+      <h2>Banknotların akışı</h2>
+      <div class="sankey" id="txSankey"></div>
+    </div>
+    <div class="card">
+      <h2>Girişler (inputs)</h2>
       <div class="tbl"><table>
         <thead><tr><th>#</th><th>Harcanan banknot (prev txid:vout)</th><th>Adres</th><th>Kilit türü</th><th style="text-align:right">BTC</th><th>Sequence</th></tr></thead>
         <tbody id="vinRows"></tbody>
       </table></div>
     </div>
-    <div class="card" style="margin-top:14px">
-      <h2>Çıkışlar (outputs) <span class="hint">Her çıkış, bu işlemin bastığı yeni banknot. Tıkla: UTXO ayrıntısı</span></h2>
+    <div class="card">
+      <h2>Çıkışlar (outputs)</h2>
       <div class="tbl"><table>
         <thead><tr><th>vout</th><th>Adres</th><th>Kilit türü</th><th style="text-align:right">BTC</th><th style="text-align:right">sat</th><th>Durum</th></tr></thead>
         <tbody id="voutRows"></tbody>
       </table></div>
     </div>
-    <div class="card" style="margin-top:14px">
+    <div class="card">
       <h2>Ham veri</h2>
-      <details><summary>İşlemin ham byte'ları (hex)</summary><pre class="code" id="txHex">yükleniyor…</pre></details>
-      <details><summary>API'nin döndürdüğü JSON</summary><pre class="code" id="txJson"></pre></details>
+      <details><summary>İşlemin ham byte'ları (hex), alan alan çözülmüş</summary>
+        <div id="rawChecks"></div>
+        <div class="legend">
+          <span><span class="chip k-meta"></span>Versiyon / locktime</span>
+          <span><span class="chip k-mark"></span>SegWit işareti</span>
+          <span><span class="chip k-count"></span>Sayı / uzunluk (varint)</span>
+          <span><span class="chip k-prev"></span>Harcanan çıktı (txid:vout)</span>
+          <span><span class="chip k-script"></span>Script</span>
+          <span><span class="chip k-seq"></span>Sequence</span>
+          <span><span class="chip k-value"></span>Miktar</span>
+          <span><span class="chip k-wit"></span>Witness</span>
+        </div>
+        <pre class="code hex" id="txHex">yükleniyor…</pre>
+        <div class="tbl scroll" id="rawTblWrap" hidden><table class="fields">
+          <thead><tr><th style="text-align:right">Ofset</th><th>Byte'lar</th><th>Alan</th><th>Çözülmüş değer</th></tr></thead>
+          <tbody id="rawRows"></tbody>
+        </table></div>
+      </details>
+      <details><summary>API'nin döndürdüğü JSON, alan alan açıklamalı</summary>
+        <label class="hint toggle"><input type="checkbox" id="jsonNotes" checked> Açıklamaları göster</label>
+        <p class="hint" style="margin:6px 0 0">
+          <span class="src s-raw">byte'larda</span> ham işlemde yazıyor ·
+          <span class="src s-der">hesaplanır</span> byte'lardan türetiliyor ·
+          <span class="src s-chain">zincirden</span> işlemde yok, API başka yerden getirdi.</p>
+        <pre class="code tall" id="txJson"></pre>
+      </details>
     </div>
+  </section>
+
+  <!-- ANATOMİ: aynı ödeme, üç kilit türü -->
+  <section id="anatomi" hidden>
+    <div class="anat-head">
+      <span class="eyebrow">İşlem anatomisi</span>
+      <h1>Aynı ödeme, üç kilit türü</h1>
+      <p>Ali iki banknotunu harcayıp Ayşe'ye 600 000 sat gönderiyor, kalanı para üstü olarak kendine dönüyor. Aynı ödeme üç kez kuruldu: Legacy P2PKH, SegWit v0 P2WPKH ve Taproot P2TR (key path). Her input için bir imza var, yani her işlemde toplam iki imza.</p>
+      <div class="scenario">
+        <div><span class="k">Input #0</span><span class="v">700 000 sat</span></div>
+        <div><span class="k">Input #1</span><span class="v">300 000 sat</span></div>
+        <div><span class="k">Output #0 · Ayşe</span><span class="v">600 000 sat</span></div>
+        <div><span class="k">Output #1 · para üstü</span><span class="v">1 000 000 − 600 000 − fee</span></div>
+        <div><span class="k">Fee oranı</span><span class="v">10 sat/vB</span></div>
+      </div>
+      <p class="note">Önceki işlemler (outpoint'ler) ve anahtarlar örnek için üretildi; bu işlemler ağa yayınlanamaz. İmzalar ise gerçek: altı imzanın hepsi libsecp256k1 ile doğrulandı. Sighash'ler ikinci, bağımsız bir uygulamayla (bitcoin-utils) yeniden hesaplanıp karşılaştırıldı. Hepsi SIGHASH_ALL (Taproot'ta DEFAULT).</p>
+    </div>
+
+    <nav class="tabs" id="anatTabs" aria-label="İşlem türü">
+      <a href="#anatomi/legacy" data-t="legacy">Legacy <small>P2PKH</small></a>
+      <a href="#anatomi/segwit" data-t="segwit">SegWit v0 <small>P2WPKH</small></a>
+      <a href="#anatomi/taproot" data-t="taproot">Taproot <small>P2TR</small></a>
+      <a href="#anatomi/karsilastirma" data-t="karsilastirma">Karşılaştırma</a>
+      <a href="#anatomi/hangi-input" data-t="hangi-input">Hangi input? <small>imza kopyalama</small></a>
+      <a href="#anatomi/akis" data-t="akis">Dolandırıcılık akışı</a>
+    </nav>
+
+    <div id="anatMain"></div>
+
+    <section class="block" id="anatMatrix" hidden>
+      <h2>Üçü yan yana: imza mesajında ne var?</h2>
+      <p class="muted">Tablo, bir input'un imzası açısından okunuyor. "Diğer" sütunları, aynı işlemdeki öteki input'u ifade ediyor.</p>
+      <div class="tablewrap"><table class="matrix">
+        <thead><tr><th>Mesajdaki alan</th><th>Legacy</th><th>SegWit v0</th><th>Taproot</th></tr></thead>
+        <tbody id="anatMbody"></tbody>
+      </table></div>
+      <h3>Sighash tipleri kapsamı nasıl daraltır?</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Tip</th><th>Byte</th><th>Input'lar</th><th>Output'lar</th></tr></thead>
+        <tbody>
+          <tr><td>DEFAULT (yalnız Taproot)</td><td class="b">00</td><td>hepsi</td><td>hepsi · imza 64 B, sighash byte'ı yazılmaz</td></tr>
+          <tr><td>ALL</td><td class="b">01</td><td>hepsi</td><td>hepsi</td></tr>
+          <tr><td>NONE</td><td class="b">02</td><td>hepsi (diğerlerinin sequence'ı hariç)</td><td>hiçbiri: parayı kim alacak, imzalanmıyor</td></tr>
+          <tr><td>SINGLE</td><td class="b">03</td><td>hepsi (diğerlerinin sequence'ı hariç)</td><td>yalnız kendi sırasındaki output</td></tr>
+          <tr><td>… | ANYONECANPAY</td><td class="b">81 · 82 · 83</td><td>yalnız kendi input'u: başkaları input ekleyebilir</td><td>yukarıdaki gibi</td></tr>
+        </tbody>
+      </table></div>
+      <p class="note">Legacy SINGLE'da output yoksa imzalanan şey sabit "1" değeridir (bilinen hata). Bu, imzanın herhangi bir işlemde kullanılabilmesi demek. BIP143 ve BIP341 bu durumu farklı ele alır; BIP341'de geçersizdir.</p>
+    </section>
   </section>
 
   <div class="backdrop" id="backdrop" hidden>
@@ -149,9 +417,11 @@
     </div>
   </div>
 
-  <p class="note">Not: Sağlayıcı sorguladığın adresleri/işlemleri ve IP'ni görür. Öğrenirken herkese açık örnekler ya da signet kullan. Çok UTXO'lu adreslerde sağlayıcı limit hatası dönebilir.</p>
 </main>
+<footer>Alperen</footer>
 
+<script src="offline-data.js"></script>
+<script src="anatomi.js"></script>
 <script>
 const PROVIDERS = {
   mainnet: ["https://mempool.space/api", "https://blockstream.info/api"],
@@ -188,20 +458,36 @@ function addressType(address) {
 }
 
 // ---------- ağ ----------
-async function getJson(url) {
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) {
-    const text = (await res.text()).trim();
-    const err = new Error(`${new URL(url).host} → HTTP ${res.status}: ${text || res.statusText}`);
-    err.status = res.status; throw err;
-  }
-  return res.json();
+// offline-data.js (offline_kaydet.py üretir): { saved_at, data: { "mainnet:/tx/…": yanıt } }
+const OFFLINE = window.OFFLINE_DATA || { data: {} };
+function offlineKey(url) {
+  for (const [net, bases] of Object.entries(PROVIDERS))
+    for (const b of bases) if (url.startsWith(b + "/")) return `${net}:${url.slice(b.length)}`;
+  return null;
 }
-async function getText(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
+// İnternet yoksa ya da sağlayıcı cevap vermezse kayıtlı yedeğe düşer
+async function request(url, asText) {
+  const key = offlineKey(url), cached = key ? OFFLINE.data[key] : undefined;
+  const fromCache = () => { state.usedOffline = true; return structuredClone(cached); };
+  if (cached !== undefined && navigator.onLine === false) return fromCache();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), cached !== undefined ? 5000 : 20000);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, headers: asText ? {} : { Accept: "application/json" } });
+    if (!res.ok) {
+      const text = (await res.text()).trim();
+      const err = new Error(`${new URL(url).host} → HTTP ${res.status}: ${text || res.statusText}`);
+      err.status = res.status; throw err;
+    }
+    return asText ? await res.text() : await res.json();
+  } catch (e) {
+    if (cached !== undefined && !(e.status >= 400 && e.status < 500)) return fromCache();
+    if (e.name === "AbortError") throw new Error(`${new URL(url).host} zamanında cevap vermedi`);
+    throw e;
+  } finally { clearTimeout(timer); }
 }
+const getJson = url => request(url, false);
+const getText = url => request(url, true);
 // İlk çalışan sağlayıcıyı bulur ve state.base'e kaydeder
 async function withProvider(network, path) {
   let lastErr;
@@ -242,6 +528,7 @@ const LOCKS = {
   v1_p2a: { name: "P2A (anchor)", who: "Herkes (fee artırma çapası)",
     how: () => `Herkesin harcayabildiği küçük bir çıktı; genelde CPFP ile fee artırmak için kullanılır.` },
 };
+const ANAT_OF = { p2pkh: "legacy", v0_p2wpkh: "segwit", v1_p2tr: "taproot" };
 const lockOf = t => LOCKS[t] || { name: t, who: "Bilinmeyen kilit türü", how: () => "" };
 const shortType = t => (LOCKS[t]?.name || t).split(" (")[0];
 function lockPayload(type, hex) {
@@ -263,7 +550,7 @@ function seqText(s) {
 }
 
 function kvHtml(pairs) {
-  return pairs.map(([k, v, d]) => `<div class="kv"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>${d ? `<div class="d">${esc(d)}</div>` : ""}</div>`).join("");
+  return pairs.map(([k, v, d, c]) => `<div class="kv"><div class="k">${esc(k)}${c ? `<button type="button" class="copy" data-copy="${esc(v)}">kopyala</button>` : ""}</div><div class="v">${esc(v)}</div>${d ? `<div class="d">${esc(d)}</div>` : ""}</div>`).join("");
 }
 
 // ---------- adres görünümü ----------
@@ -295,7 +582,7 @@ async function loadAddress(address, network) {
   state.report = buildReport(address, network, state.base, utxos, stats);
   const h = state.report.header, s = h.address_stats;
   $("summary").innerHTML = kvHtml([
-    ["Adres", h.address], ["Ağ / tür", `${h.network} · ${h.address_type}`],
+    ["Adres", h.address, "", true], ["Ağ / tür", `${h.network} · ${h.address_type}`],
     ["UTXO sayısı", `${fmt(h.utxo_count)} (onaylı ${fmt(h.confirmed_utxo_count)})`],
     ["Toplam değer", `${h.total_value_btc} BTC`], ["Onaylı değer", `${h.confirmed_value_btc} BTC`],
     ["Onaysız değer", `${btc(h.unconfirmed_value_sat)} BTC`],
@@ -312,8 +599,96 @@ async function loadAddress(address, network) {
     bindRow(tr, () => openDetail({ txid: u.txid, vout: u.vout }));
     tbody.append(tr);
   });
-  if (!utxos.length) showMsg("Bu adreste harcanmamış çıktı yok.");
+  renderBubbles(state.report.utxos);
+  if (!utxos.length) showMsg("Bu adreste harcanmamış çıktı yok.", false, "info");
   $("addrView").hidden = false;
+}
+
+// ---------- UTXO haritası: daireler, büyükler ortada, sarmal elips ----------
+function renderBubbles(utxos) {
+  const box = $("bubbles"), tip = $("bubbleTip");
+  box.querySelector("svg")?.remove(); tip.hidden = true;
+  box.closest(".card").hidden = !utxos.length;
+  if (!utxos.length) return;
+
+  const LIMIT = 1500, list = utxos.slice(0, LIMIT);  // utxos zaten büyükten küçüğe sıralı
+  // Boyut logaritmik: 546 sat ile 300 BTC aynı resimde görünebilsin (büyük daire = büyük miktar)
+  const R_MAX = 22, R_MIN = 4, PAD = 2.2, ASPECT = 2;
+  const lmax = Math.log(Math.max(1, list[0].value_sat)), lmin = Math.log(Math.max(1, list.at(-1).value_sat));
+  const radius = v => R_MIN + (R_MAX - R_MIN) * (lmax > lmin ? (Math.log(Math.max(1, v)) - lmin) / (lmax - lmin) : 1);
+
+  // Yerleşim: her daire, merkezden dışa açılan elips sarmalında çakışmadığı ilk noktaya konur
+  const cell = R_MAX * 2 + PAD, grid = new Map(), placed = [];
+  const keyOf = (i, j) => (i + 5000) * 10000 + (j + 5000);
+  const fits = (x, y, r) => {
+    const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+    for (let i = cx - 1; i <= cx + 1; i++) for (let j = cy - 1; j <= cy + 1; j++) {
+      const bucket = grid.get(keyOf(i, j));
+      if (bucket) for (const c of bucket) { const dx = c.x - x, dy = c.y - y, m = c.r + r + PAD; if (dx * dx + dy * dy < m * m) return false; }
+    }
+    return true;
+  };
+  let t0 = 0;
+  for (const u of list) {
+    const r = radius(u.value_sat);
+    let t = Math.max(0, t0 - 2.5 * Math.PI), x = 0, y = 0;   // son turdaki boşluklardan aramaya başla
+    const arc = Math.max(0.8, r * 0.3);
+    for (;;) {
+      const d = 0.35 * t;
+      x = ASPECT * d * Math.cos(t); y = d * Math.sin(t);
+      if (fits(x, y, r)) break;
+      t += Math.min(0.3, arc / Math.max(1, d));
+    }
+    t0 = Math.max(t0, t);
+    const c = { x, y, r, u }; placed.push(c);
+    const k = keyOf(Math.floor(x / cell), Math.floor(y / cell)); (grid.get(k) || grid.set(k, []).get(k)).push(c);
+  }
+
+  // Renk: yaş. En yeni → parlak turuncu, en eski → koyu kehribar
+  const hs = list.map(u => u.block_height).filter(Boolean);
+  const hMin = Math.min(...hs), hMax = Math.max(...hs), span = Math.max(1, hMax - hMin);
+  const color = u => {
+    if (!u.confirmed) return "var(--ok)";
+    const a = (u.block_height - hMin) / span;   // 0 = eski, 1 = yeni
+    return `hsl(${22 + a * 16} ${70 + a * 25}% ${30 + a * 30}%)`;
+  };
+
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of placed) { x0 = Math.min(x0, c.x - c.r); y0 = Math.min(y0, c.y - c.r); x1 = Math.max(x1, c.x + c.r); y1 = Math.max(y1, c.y + c.r); }
+  const m = R_MAX * 0.5; x0 -= m; y0 -= m; x1 += m; y1 += m;
+  const steps = Math.min(placed.length, 120);
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `${placed.length} UTXO'nun daire haritası`);
+  svg.innerHTML = placed.map((c, i) => `<circle class="bub${c.u.confirmed ? "" : " unconf"}" data-i="${i}" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${c.r.toFixed(1)}" fill="${color(c.u)}" style="animation-delay:${(Math.min(i, steps) / steps * 0.7).toFixed(2)}s"/>`).join("")
+    + `<circle class="bub-hl" r="0"/>`;
+  box.prepend(svg);
+
+  const hl = svg.querySelector(".bub-hl");
+  const now = Date.now() / 1000;
+  const show = (c, e) => {
+    hl.setAttribute("cx", c.x); hl.setAttribute("cy", c.y); hl.setAttribute("r", c.r); hl.setAttribute("fill", color(c.u));
+    hl.classList.remove("on"); void hl.getBBox(); hl.classList.add("on");
+    const u = c.u, days = u.block_time ? Math.floor((now - u.block_time) / 86400) : null;
+    tip.innerHTML = `<b>${u.value_btc} BTC</b><span>${fmt(u.value_sat)} sat</span>
+      <span class="mono">${esc(u.txid.slice(0, 12))}…:${u.vout}</span>
+      <span>${u.confirmed ? `blok ${fmt(u.block_height)}${days != null ? ` · ${fmt(days)} gün önce` : ""}` : "onaysız (mempool)"}</span>`;
+    tip.hidden = false; moveTip(e);
+  };
+  const moveTip = e => {
+    const b = box.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = e.clientX - b.left + 14, y = e.clientY - b.top + 14;
+    if (x + w > b.width) x = e.clientX - b.left - w - 14;
+    if (y + h > b.height) y = e.clientY - b.top - h - 14;
+    tip.style.transform = `translate(${x}px, ${y}px)`;
+  };
+  svg.addEventListener("mouseover", e => { const el = e.target.closest(".bub"); if (el) show(placed[+el.dataset.i], e); });
+  svg.addEventListener("mousemove", e => { if (!tip.hidden) moveTip(e); });
+  svg.addEventListener("mouseout", e => { if (e.target.closest(".bub") && !e.relatedTarget?.closest?.(".bub")) { tip.hidden = true; hl.classList.remove("on"); } });
+  svg.addEventListener("click", e => { const el = e.target.closest(".bub"); if (el) { const u = placed[+el.dataset.i].u; openDetail({ txid: u.txid, vout: u.vout }); } });
+  if (utxos.length > LIMIT) box.insertAdjacentHTML("beforeend", `<p class="hint" style="margin:8px 0 0">En büyük ${fmt(LIMIT)} UTXO gösteriliyor (toplam ${fmt(utxos.length)}).</p>`);
 }
 
 // ---------- işlem görünümü ----------
@@ -333,11 +708,11 @@ async function loadTx(txid, network) {
   const [ltV, ltD] = locktimeText(tx.locktime);
 
   $("txSummary").innerHTML = kvHtml([
-    ["txid", tx.txid, "İşlemin adı: imzalar hariç byte'larının SHA256d'si"],
+    ["txid", tx.txid, "İşlemin adı: imzalar hariç byte'larının SHA256d'si", true],
     ["Durum", tx.status.confirmed ? `Onaylı · blok ${fmt(tx.status.block_height)}` : "Onaysız (mempool)"],
     ["Onay sayısı", tx.status.confirmed ? (conf ? fmt(conf) : "?") : "0"],
     ["Blok zamanı", tx.status.block_time ? new Date(tx.status.block_time * 1000).toLocaleString("tr-TR") : "—"],
-    ["Blok hash", tx.status.block_hash || "—"],
+    ["Blok hash", tx.status.block_hash || "—", "", !!tx.status.block_hash],
     ["Versiyon", String(tx.version), tx.version >= 2 ? "v2: göreli zaman kilitleri (BIP68) kullanılabilir" : ""],
     ["Locktime", ltV, ltD],
     ["Input / output", `${fmt(tx.vin.length)} / ${fmt(tx.vout.length)}`],
@@ -360,7 +735,15 @@ async function loadTx(txid, network) {
   tx.vin.forEach((v, i) => {
     const tr = document.createElement("tr");
     if (v.is_coinbase) {
-      tr.innerHTML = `<td>${i}</td><td colspan="4"><span class="tag mute">coinbase: harcanan banknot yok</span></td><td class="mono">${seqHex(v.sequence)}</td>`;
+      // BIP34: coinbase scriptSig'inin ilk öğesi blok yüksekliği (little-endian)
+      const ss = v.scriptsig || "", hl = parseInt(ss.slice(0, 2), 16);
+      const height = hl >= 1 && hl <= 8 ? parseInt(ss.slice(2, 2 + hl * 2).match(/../g).reverse().join(""), 16) : null;
+      const tag = (ss.match(/../g) || []).map(h => parseInt(h, 16)).map(c => c >= 32 && c < 127 ? String.fromCharCode(c) : " ")
+        .join("").split(/\s+/).filter(w => w.length >= 4).join(" ");
+      tr.innerHTML = `<td>${i}</td><td colspan="3"><span class="tag mute">coinbase</span> Eski banknot harcanmıyor: bu para blok ödülü (yeni basılan BTC) + bloktaki fee'ler.
+        ${height != null ? `<br><span class="hint">Blok yüksekliği (scriptSig'de, BIP34): ${fmt(height)}</span>` : ""}
+        ${tag ? `<br><span class="hint">Madencinin scriptSig'e yazdığı metin: <code>${esc(tag)}</code></span>` : ""}</td>
+        <td class="num">${btc(sumOut)}</td><td class="mono">${seqHex(v.sequence)}</td>`;
     } else {
       const p = v.prevout || {};
       tr.className = "click"; tr.tabIndex = 0;
@@ -385,11 +768,399 @@ async function loadTx(txid, network) {
     voutBody.append(tr);
   });
 
-  $("txJson").textContent = JSON.stringify(tx, null, 2);
-  $("txHex").textContent = "yükleniyor…";
-  getText(`${state.base}/tx/${txid}/hex`).then(h => ($("txHex").textContent = h)).catch(() => ($("txHex").textContent = "alınamadı"));
+  renderSankey(tx, outspends, sumIn, sumOut, isCoinbase);
+  renderJson();
+  $("txHex").textContent = "yükleniyor…"; $("rawChecks").innerHTML = ""; $("rawTblWrap").hidden = true;
+  getText(`${state.base}/tx/${txid}/hex`)
+    .then(h => { if (state.tx === tx) renderRaw(h.trim(), tx); })
+    .catch(() => { if (state.tx === tx) $("txHex").textContent = "alınamadı"; });
   $("txView").hidden = false;
 }
+
+// ---------- akış şeması: girişler → işlem → çıkışlar + fee ----------
+function renderSankey(tx, outspends, sumIn, sumOut, isCoinbase) {
+  const MAX = 7;  // bir tarafta en çok bu kadar kutu; fazlası tek kutuda toplanır
+  const shortAddr = a => a && a.length > 22 ? a.slice(0, 10) + "…" + a.slice(-8) : a;
+  const group = (items, label) => items.length <= MAX ? items
+    : [...items.slice(0, MAX - 1), { kind: "more", value: items.slice(MAX - 1).reduce((a, x) => a + x.value, 0), title: `+${fmt(items.length - MAX + 1)} ${label} daha`, sub: "tamamı tabloda" }];
+
+  const ins = group(isCoinbase
+    ? [{ kind: "coinbase", value: sumOut, title: "Yeni basılan BTC", sub: "blok ödülü + bloktaki fee'ler" }]
+    : tx.vin.map((v, i) => ({ kind: "in", i, value: v.prevout?.value || 0, title: shortAddr(v.prevout?.scriptpubkey_address) || shortType(v.prevout?.scriptpubkey_type) || "?", sub: "harcanıyor" })), "giriş");
+  let outs = tx.vout.map((o, n) => {
+    const sp = outspends?.[n];
+    return { kind: o.scriptpubkey_type === "op_return" ? "data" : "out", n, value: o.value,
+      title: shortAddr(o.scriptpubkey_address) || (o.scriptpubkey_type === "op_return" ? "OP_RETURN (veri)" : shortType(o.scriptpubkey_type)),
+      sub: o.scriptpubkey_type === "op_return" ? "harcanamaz" : !sp ? "yeni banknot" : sp.spent ? "sonradan harcandı" : "UTXO, harcanmamış",
+      utxo: sp && !sp.spent && o.scriptpubkey_type !== "op_return" };
+  });
+  outs = group(outs, "çıkış");
+  if (!isCoinbase && tx.fee > 0) outs.push({ kind: "fee", value: tx.fee, title: "Fee", sub: "madenciye gider" });
+
+  const total = Math.max(isCoinbase ? sumOut : sumIn, 1);
+  const BAND = 90, NODE_W = 290, W = 1000, GAP = 12, PAD = 8;
+  const thick = v => Math.max(3, v / total * BAND);
+  const layout = list => { let y = 0; return list.map(x => { const t = thick(x.value), h = Math.max(46, t + 10); const o = { ...x, t, h, y }; y += h + GAP; return o; }); };
+  const L = layout(ins), R = layout(outs);
+  const colH = list => list.length ? list.at(-1).y + list.at(-1).h : 0;
+  const txT = Math.max(L.reduce((a, x) => a + x.t, 0), R.reduce((a, x) => a + x.t, 0));
+  const txH = txT + 40;
+  const H = Math.max(colH(L), colH(R), txH) + PAD * 2;
+  const shift = list => { const off = (H - colH(list)) / 2; list.forEach(x => (x.y += off)); };
+  shift(L); shift(R);
+  const TX_X = W / 2 - 60, TX_W = 120, txY = (H - txH) / 2;
+
+  const band = (x1, a1, x2, a2, t, cls) => {
+    const m = (x1 + x2) / 2;
+    return `<path class="band ${cls}" d="M${x1},${a1} C${m},${a1} ${m},${a2} ${x2},${a2} L${x2},${a2 + t} C${m},${a2 + t} ${m},${a1 + t} ${x1},${a1 + t} Z"/>`;
+  };
+  let paths = "", nodes = "";
+  const node = (x, n, side, idx) => {
+    const cls = `node k-${n.kind}${n.utxo ? " utxo" : ""}`;
+    const clickable = n.kind === "in" || n.kind === "out" || n.kind === "data";
+    return `<g class="${cls}${clickable ? " clickable" : ""}" data-side="${side}" data-idx="${idx}" ${clickable ? 'tabindex="0" role="button"' : ""}>
+      <rect x="${x}" y="${n.y}" width="${NODE_W}" height="${n.h}" rx="10"/>
+      <text x="${x + 14}" y="${n.y + n.h / 2 - 4}" class="t1">${esc(n.title)}</text>
+      <text x="${x + 14}" y="${n.y + n.h / 2 + 14}" class="t2">${esc(btc(n.value))} BTC · ${esc(n.sub)}</text></g>`;
+  };
+  let acc = txY + 20 + (txT - L.reduce((a, x) => a + x.t, 0)) / 2;
+  L.forEach((n, i) => { paths += band(NODE_W, n.y + (n.h - n.t) / 2, TX_X, acc, n.t, "b-" + n.kind); acc += n.t; nodes += node(0, n, "in", i); });
+  acc = txY + 20 + (txT - R.reduce((a, x) => a + x.t, 0)) / 2;
+  R.forEach((n, i) => { paths += band(TX_X + TX_W, acc, W - NODE_W, n.y + (n.h - n.t) / 2, n.t, "b-" + n.kind + (n.utxo ? " utxo" : "")); acc += n.t; nodes += node(W - NODE_W, n, "out", i); });
+  const txBox = `<g class="txnode"><rect x="${TX_X}" y="${txY}" width="${TX_W}" height="${txH}" rx="12"/>
+    <text x="${W / 2}" y="${txY + txH / 2 - 4}" text-anchor="middle" class="t1">İşlem</text>
+    <text x="${W / 2}" y="${txY + txH / 2 + 14}" text-anchor="middle" class="t2">${esc(tx.txid.slice(0, 8))}…</text></g>`;
+
+  const box = $("txSankey");
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Girişlerden çıkışlara para akışı">${paths}${txBox}${nodes}</svg>`;
+  box.querySelectorAll("g.clickable").forEach(g => {
+    const n = (g.dataset.side === "in" ? L : R)[+g.dataset.idx];
+    const open = () => n.kind === "in" ? openDetail({ txid: tx.vin[n.i].txid, vout: tx.vin[n.i].vout, spender: { tx, index: n.i } }) : openDetail({ txid: tx.txid, vout: n.n });
+    g.addEventListener("click", open);
+    g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+  });
+}
+
+// ---------- ham byte çözümleyici ----------
+const toHex = b => Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
+const revHex = b => toHex(Uint8Array.from(b).reverse());
+function hexToBytes(h) {
+  if (h.length % 2 || !/^[0-9a-fA-F]*$/.test(h)) throw new Error("geçersiz hex");
+  const b = new Uint8Array(h.length / 2);
+  for (let i = 0; i < b.length; i++) b[i] = parseInt(h.substr(i * 2, 2), 16);
+  return b;
+}
+
+// 0x61–0xba arası opcode adları (sırayla)
+const OP_NAMES = ("NOP VER IF NOTIF VERIF VERNOTIF ELSE ENDIF VERIFY RETURN TOALTSTACK FROMALTSTACK 2DROP 2DUP 3DUP 2OVER 2ROT 2SWAP " +
+  "IFDUP DEPTH DROP DUP NIP OVER PICK ROLL ROT SWAP TUCK CAT SUBSTR LEFT RIGHT SIZE INVERT AND OR XOR EQUAL EQUALVERIFY " +
+  "RESERVED1 RESERVED2 1ADD 1SUB 2MUL 2DIV NEGATE ABS NOT 0NOTEQUAL ADD SUB MUL DIV MOD LSHIFT RSHIFT BOOLAND BOOLOR " +
+  "NUMEQUAL NUMEQUALVERIFY NUMNOTEQUAL LESSTHAN GREATERTHAN LESSTHANOREQUAL GREATERTHANOREQUAL MIN MAX WITHIN " +
+  "RIPEMD160 SHA1 SHA256 HASH160 HASH256 CODESEPARATOR CHECKSIG CHECKSIGVERIFY CHECKMULTISIG CHECKMULTISIGVERIFY " +
+  "NOP1 CLTV CSV NOP4 NOP5 NOP6 NOP7 NOP8 NOP9 NOP10 CHECKSIGADD").split(" ");
+function opName(op) {
+  if (op === 0) return "OP_0";
+  if (op === 0x4f) return "OP_PUSHNUM_NEG1";
+  if (op === 0x50) return "OP_RESERVED";
+  if (op >= 0x51 && op <= 0x60) return "OP_PUSHNUM_" + (op - 0x50);
+  if (op >= 0x61 && op <= 0xba) return "OP_" + OP_NAMES[op - 0x61];
+  return "OP_UNKNOWN_0x" + op.toString(16);
+}
+// Script byte'larını okunur hale getirir (API'nin *_asm alanlarıyla aynı biçim)
+function disasm(b) {
+  const out = []; let i = 0;
+  while (i < b.length) {
+    const op = b[i++];
+    if (op < 1 || op > 0x4e) { out.push(opName(op)); continue; }
+    let n = op, name = "OP_PUSHBYTES_" + op;
+    if (op >= 0x4c) {
+      const w = op === 0x4c ? 1 : op === 0x4d ? 2 : 4;
+      name = "OP_PUSHDATA" + w;
+      if (i + w > b.length) { out.push(name + " <eksik>"); break; }
+      n = 0; for (let k = w - 1; k >= 0; k--) n = n * 256 + b[i + k];
+      i += w;
+    }
+    if (i + n > b.length) { out.push(name + " <eksik veri>"); break; }
+    out.push(n ? `${name} ${toHex(b.subarray(i, i + n))}` : name);
+    i += n;
+  }
+  return out.join(" ");
+}
+// scriptPubKey kalıbından kilit türü (API'nin scriptpubkey_type adlarıyla)
+function scriptType(b) {
+  const h = toHex(b), L = b.length;
+  if (L === 25 && h.startsWith("76a914") && h.endsWith("88ac")) return "p2pkh";
+  if (L === 23 && h.startsWith("a914") && h.endsWith("87")) return "p2sh";
+  if (L === 22 && h.startsWith("0014")) return "v0_p2wpkh";
+  if (L === 34 && h.startsWith("0020")) return "v0_p2wsh";
+  if (L === 34 && h.startsWith("5120")) return "v1_p2tr";
+  if (h === "51024e73") return "v1_p2a";
+  if (b[0] === 0x6a) return "op_return";
+  if (((L === 35 && b[0] === 0x21) || (L === 67 && b[0] === 0x41)) && b[L - 1] === 0xac) return "p2pk";
+  if (b[L - 1] === 0xae) return "multisig";
+  return null;
+}
+function opReturnText(b) {
+  if (b[0] !== 0x6a || b.length < 3) return "";
+  const data = b[1] <= 0x4b ? b.subarray(2, 2 + b[1]) : b[1] === 0x4c ? b.subarray(3, 3 + b[2]) : null;
+  if (!data || !data.length) return "";
+  if (toHex(data.subarray(0, 4)) === "aa21a9ed") return "SegWit witness taahhüdü (coinbase'te bloğun witness'larının hash'i)";
+  try {
+    const t = new TextDecoder("utf-8", { fatal: true }).decode(data);
+    return /^[^\x00-\x08\x0e-\x1f\x7f]+$/.test(t) ? `metin olarak: "${t}"` : "";
+  } catch { return ""; }
+}
+const SIGHASH = { 0: "DEFAULT", 1: "ALL", 2: "NONE", 3: "SINGLE", 0x81: "ALL|ANYONECANPAY", 0x82: "NONE|ANYONECANPAY", 0x83: "SINGLE|ANYONECANPAY" };
+function describeWitnessItem(hex, label) {
+  const n = hex.length / 2, last = parseInt(hex.slice(-2), 16);
+  if (/^(Witness script|Kullanılan script)/.test(label)) return disasm(hexToBytes(hex));
+  if (hex.startsWith("30") && n >= 9 && n <= 73) return `DER imzası · sighash ${SIGHASH[last] || "0x" + hex.slice(-2)} · ${hex}`;
+  if (/Schnorr/.test(label) && n === 64) return `Schnorr imzası · sighash DEFAULT (ALL) · ${hex}`;
+  if (/Schnorr/.test(label) && n === 65) return `Schnorr imzası · sighash ${SIGHASH[last] || "0x" + hex.slice(-2)} · ${hex}`;
+  if (n === 33 && /^0[23]/.test(hex)) return `Sıkıştırılmış public key (${hex.slice(0, 2)} öneki: y ${hex[1] === "2" ? "çift" : "tek"}) · ${hex}`;
+  return hex;
+}
+// Coinbase scriptSig'in başındaki blok yüksekliği (BIP34)
+function bip34(sc) {
+  const n = sc[0];
+  if (n < 1 || n > 8 || sc.length < 1 + n) return null;
+  let h = 0; for (let i = n; i >= 1; i--) h = h * 256 + sc[i];
+  return h;
+}
+
+// Ham işlemi byte byte okur; her alan: { start, end, kind, name, value, note, group }
+function parseRawTx(hex, apiTx) {
+  const b = hexToBytes(hex), F = [];
+  let p = 0, group = "Başlık";
+  const need = n => { if (p + n > b.length) throw new Error(`${p}. byte'ta veri bitti (${n} byte daha bekleniyordu)`); };
+  const take = n => { need(n); p += n; return b.subarray(p - n, p); };
+  const le = s => { let v = 0n; for (let i = s.length - 1; i >= 0; i--) v = (v << 8n) | BigInt(s[i]); return v; };
+  const u32 = () => Number(le(take(4)));
+  const varint = () => { need(1); const f = b[p++]; return f < 0xfd ? f : Number(le(take(f === 0xfd ? 2 : f === 0xfe ? 4 : 8))); };
+  const add = (start, kind, name, value, note = "") => F.push({ start, end: p, kind, name, value: String(value), note, group });
+  const vnote = s => p - s > 1 ? `CompactSize: ilk byte 0x${toHex(b.subarray(s, s + 1))}, sayı sonraki ${p - s - 1} byte'ta` : "";
+
+  let s = p;
+  const version = u32() | 0;
+  add(s, "meta", "Versiyon", version, "4 byte, little-endian (küçük byte önce)");
+  const segwit = b[p] === 0 && b[p + 1] === 1;
+  if (segwit) { s = p; p += 2; add(s, "mark", "Marker + flag", "00 01", "SegWit işareti: işlemin sonunda witness verisi var"); }
+  const bodyStart = p;
+
+  group = "Girişler";
+  s = p; const nIn = varint();
+  add(s, "count", "Input sayısı", nIn, vnote(s) || "CompactSize (varint): 0xfd'den küçük sayılar tek byte");
+  for (let i = 0; i < nIn; i++) {
+    group = `Input #${i}`;
+    s = p; const prevTxid = revHex(take(32));
+    const zero = /^0+$/.test(prevTxid);
+    add(s, "prev", "Harcanan çıktının txid'i", zero ? "000…000 (coinbase: harcanan çıktı yok)" : prevTxid,
+      "Byte'lar ters sırada yazılır; gösterilen txid bunların tersi");
+    s = p; const vout = u32();
+    add(s, "prev", "Harcanan çıktının vout'u", vout === 0xffffffff ? "0xffffffff" : vout, "4 byte, little-endian");
+    const isCb = zero && vout === 0xffffffff;
+    s = p; const sl = varint();
+    add(s, "count", "scriptSig uzunluğu", `${sl} byte`, sl ? vnote(s) : "Boş: SegWit input'larda kilit açma verisi witness'ta");
+    if (sl) {
+      s = p; const sc = take(sl);
+      if (isCb) {
+        const h = bip34(sc);
+        add(s, "script", "Coinbase verisi", h != null ? `Blok yüksekliği ${fmt(h)} (BIP34) + serbest veri · ${toHex(sc)}` : toHex(sc), "Coinbase'te scriptSig serbest alandır; madenci yazar");
+      } else add(s, "script", "scriptSig (kilit açma)", disasm(sc));
+    }
+    s = p; const seq = u32();
+    add(s, "seq", "Sequence", seqHex(seq), "4 byte, little-endian · " + seqText(seq));
+  }
+
+  group = "Çıkışlar";
+  s = p; const nOut = varint();
+  add(s, "count", "Output sayısı", nOut, vnote(s));
+  for (let n = 0; n < nOut; n++) {
+    group = `Output #${n}`;
+    s = p; const val = le(take(8));
+    add(s, "value", "Miktar", `${fmt(val)} sat = ${btc(val)} BTC`, "8 byte, little-endian, satoshi cinsinden");
+    s = p; const pl = varint();
+    add(s, "count", "scriptPubKey uzunluğu", `${pl} byte`, vnote(s));
+    if (pl) {
+      s = p; const pk = take(pl), t = scriptType(pk);
+      add(s, "script", "scriptPubKey (kilit)", disasm(pk), [t ? "Tür: " + lockOf(t).name : "", opReturnText(pk)].filter(Boolean).join(" · "));
+    }
+  }
+  const bodyEnd = p;
+
+  if (segwit) {
+    for (let i = 0; i < nIn; i++) {
+      group = `Witness · input #${i}`;
+      s = p; const k = varint();
+      add(s, "count", "Öğe sayısı", k, k ? vnote(s) : "Boş: bu input witness kullanmıyor (legacy input)");
+      const items = [], idx = [];
+      for (let j = 0; j < k; j++) {
+        s = p; const L = varint();
+        add(s, "count", `witness[${j}] uzunluğu`, `${L} byte`, L ? vnote(s) : "Boş öğe");
+        if (L) { s = p; items.push(toHex(take(L))); idx.push(F.length); add(s, "wit", `witness[${j}]`, ""); }
+        else { items.push(""); idx.push(-1); }
+      }
+      const vin = apiTx?.vin?.[i] || {};
+      const labels = witnessLabels(vin.prevout?.scriptpubkey_type, items, vin);
+      idx.forEach((fi, j) => { if (fi >= 0) { F[fi].name += " · " + labels[j]; F[fi].value = describeWitnessItem(items[j], labels[j]); } });
+    }
+  }
+
+  group = "Son";
+  s = p; const lt = u32();
+  add(s, "meta", "Locktime", lt, "4 byte, little-endian · " + locktimeText(lt)[1]);
+  if (p !== b.length) throw new Error(`İşlem ${p}. byte'ta bitti ama ${b.length - p} byte arttı`);
+  return { b, F, segwit, nIn, nOut, bodyStart, bodyEnd };
+}
+
+async function sha256d(bytes) {
+  const h1 = await crypto.subtle.digest("SHA-256", bytes);
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", h1));
+}
+
+async function renderRaw(hex, tx) {
+  let dec;
+  try { dec = parseRawTx(hex, tx); }
+  catch (e) {
+    $("txHex").textContent = hex;
+    $("rawChecks").innerHTML = `<div class="msg err" style="margin-top:8px">Çözümlenemedi: ${esc(e.message)}</div>`;
+    return;
+  }
+  const { b, F, segwit, nIn, nOut, bodyStart, bodyEnd } = dec;
+
+  // txid, witness hariç byte'lardan hesaplanır: versiyon + gövde + locktime
+  let stripped = b;
+  if (segwit) {
+    stripped = new Uint8Array(4 + (bodyEnd - bodyStart) + 4);
+    stripped.set(b.subarray(0, 4)); stripped.set(b.subarray(bodyStart, bodyEnd), 4); stripped.set(b.subarray(b.length - 4), stripped.length - 4);
+  }
+  const base = stripped.length, wit = b.length - base, weight = base * 4 + wit;
+  const chk = (ok, html) => `<li class="${ok ? "good" : "bad"}">${ok ? "✓" : "✗"} ${html}</li>`;
+  $("rawChecks").innerHTML = `<ul class="checks">
+    ${chk(b.length === tx.size, `${fmt(b.length)} byte, API'nin <code>size</code> alanıyla ${b.length === tx.size ? "aynı" : "farklı"}`)}
+    ${chk(weight === tx.weight, `Ağırlık: ${fmt(base)} byte gövde × 4 + ${fmt(wit)} byte witness × 1 = ${fmt(weight)} WU (API: ${fmt(tx.weight)})`)}
+    ${chk(nIn === tx.vin.length && nOut === tx.vout.length, `${fmt(nIn)} input, ${fmt(nOut)} output okundu (API: ${fmt(tx.vin.length)} / ${fmt(tx.vout.length)})`)}
+    <li class="hint" id="txidChk">txid hesaplanıyor…</li>
+  </ul>`;
+
+  $("txHex").innerHTML = F.map((f, i) =>
+    `<span class="hb k-${f.kind}" data-f="${i}" title="${esc(`${f.group} · ${f.name}`)}">${toHex(b.subarray(f.start, f.end))}</span>`).join("");
+
+  let lastGroup = null; const rows = [];
+  F.forEach((f, i) => {
+    if (f.group !== lastGroup) { rows.push(`<tr class="grp"><td colspan="4">${esc(f.group)}</td></tr>`); lastGroup = f.group; }
+    const h = toHex(b.subarray(f.start, f.end));
+    rows.push(`<tr data-f="${i}"><td class="num">${f.start}</td>
+      <td class="mono"><span class="chip k-${f.kind}"></span>${h.length > 24 ? h.slice(0, 20) + "…" : h}</td>
+      <td>${esc(f.name)}<div class="hint">${f.end - f.start} byte</div></td>
+      <td class="wrap"><span class="mono">${esc(f.value)}</span>${f.note ? `<div class="hint">${esc(f.note)}</div>` : ""}</td></tr>`);
+  });
+  $("rawRows").innerHTML = rows.join("");
+  $("rawTblWrap").hidden = false;
+
+  let html;
+  try {
+    if (!globalThis.crypto?.subtle) throw new Error();
+    const id = revHex(await sha256d(stripped));
+    html = chk(id === tx.txid, `txid = SHA256(SHA256(witness hariç ${fmt(base)} byte)), ters sırada: <code>${id}</code>`);
+    if (segwit) html += `<li class="hint">wtxid (witness dahil aynı hash): <code>${revHex(await sha256d(b))}</code></li>`;
+  } catch { html = `<li class="hint">txid kontrol edilemedi (tarayıcı SHA-256 desteği yok)</li>`; }
+  if (state.tx === tx && $("txidChk")) $("txidChk").outerHTML = html;
+}
+
+let rawHl = [];
+function rawHighlight(i) {
+  rawHl.forEach(e => e.classList.remove("hl"));
+  rawHl = i == null ? [] : [$("txHex").querySelector(`[data-f="${i}"]`), $("rawRows").querySelector(`[data-f="${i}"]`)].filter(Boolean);
+  rawHl.forEach(e => e.classList.add("hl"));
+}
+for (const [el, other] of [["txHex", "rawRows"], ["rawRows", "txHex"]]) {
+  $(el).addEventListener("mouseover", e => { const t = e.target.closest("[data-f]"); if (t) rawHighlight(t.dataset.f); });
+  $(el).addEventListener("mouseleave", () => rawHighlight(null));
+  $(el).addEventListener("click", e => {
+    const t = e.target.closest("[data-f]"); if (!t) return;
+    rawHighlight(t.dataset.f);
+    $(other).querySelector(`[data-f="${t.dataset.f}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+}
+
+// ---------- açıklamalı JSON ----------
+const SRC = { raw: "byte'larda", der: "hesaplanır", chain: "zincirden" };
+const JSON_DOCS = {
+  "txid": ["der", "İşlemin kimliği: witness hariç byte'ların SHA256d'si, ters sırada"],
+  "version": ["raw", "İlk 4 byte"],
+  "locktime": ["raw", v => "Son 4 byte · " + locktimeText(v)[1]],
+  "vin": ["raw", v => `${v.length} giriş: harcanan eski çıktılar`],
+  "vout": ["raw", v => `${v.length} çıkış: yeni çıktılar`],
+  "size": ["der", "Ham byte sayısı (witness dahil)"],
+  "weight": ["der", v => `Ağırlık birimi (WU) · ${fmt(Math.ceil(v / 4))} vB`],
+  "sigops": ["chain", "İmza işlemi sayısı (blok limiti için); harcanan çıktıların script'lerine de bakılır"],
+  "fee": ["chain", v => `${btc(v)} BTC · Σ input − Σ output; input miktarları byte'larda yazmıyor`],
+  "status": ["chain", "Zincirdeki durumu: işlemin içinde değil, node'un bilgisi"],
+  "status.confirmed": ["chain", v => v ? "Bir bloğa girmiş" : "Henüz mempool'da"],
+  "status.block_height": ["chain", "İçinde olduğu bloğun yüksekliği"],
+  "status.block_hash": ["chain", "İçinde olduğu bloğun hash'i"],
+  "status.block_time": ["chain", v => "Blok başlığındaki zaman · " + new Date(v * 1000).toLocaleString("tr-TR")],
+  "vin.txid": ["raw", "Harcanan çıktının işlemi (byte'larda ters sırada)"],
+  "vin.vout": ["raw", "Harcanan çıktının o işlemdeki sırası"],
+  "vin.prevout": ["chain", "Harcanan çıktının kopyası: byte'larda yok, API önceki işlemden getirdi"],
+  "vin.scriptsig": ["raw", "Kilit açma script'i (hex); native SegWit'te boş"],
+  "vin.scriptsig_asm": ["der", "scriptSig'in okunur hali"],
+  "vin.witness": ["raw", v => `${v.length} öğe: imzalar ve diğer açma verisi`],
+  "vin.is_coinbase": ["der", "txid tamamen 0 ve vout 0xffffffff ise coinbase"],
+  "vin.sequence": ["raw", v => `${seqHex(v)} · ${seqText(v)}`],
+  "vin.inner_redeemscript_asm": ["der", "scriptSig'in son öğesi çözüldü: P2SH koşulu"],
+  "vin.inner_witnessscript_asm": ["der", "Witness'ın son öğesi çözüldü: koşul script'i"],
+  "scriptpubkey": ["raw", "Kilit script'i (hex)"],
+  "scriptpubkey_asm": ["der", "Kilit script'inin okunur hali"],
+  "scriptpubkey_type": ["der", v => "Script kalıbından tanınır · " + lockOf(v).name],
+  "scriptpubkey_address": ["der", "Script'ten kodlanır (bech32 / Base58); byte'larda adres değil kilit yazıyor"],
+  "value": ["raw", v => `${btc(v)} BTC · 8 byte, satoshi`],
+};
+const cmt = (text, src) => text ? `  <span class="j-c">// ${esc(text)}</span>${src ? ` <span class="src s-${src}">${SRC[src]}</span>` : ""}` : "";
+function docFor(ctx, key, v) {
+  const d = JSON_DOCS[`${ctx}.${key}`] || JSON_DOCS[key];
+  if (!d) return "";
+  let [src, text] = d;
+  if (ctx === "prevout") src = "chain";
+  try { text = typeof text === "function" ? text(v) : text; } catch { text = ""; }
+  return cmt(text, src);
+}
+function jsonAnnotated(tx) {
+  const lines = [];
+  const prim = v => v === null ? `<span class="j-b">null</span>`
+    : typeof v === "string" ? `<span class="j-s">${esc(JSON.stringify(v))}</span>`
+    : typeof v === "number" ? `<span class="j-n">${v}</span>` : `<span class="j-b">${v}</span>`;
+  // ctx: içinde bulunulan nesnenin adı ("", "vin", "prevout", "status"…)
+  const walk = (v, depth, key, ctx, comma, note, labels) => {
+    const ind = "  ".repeat(depth), c = comma ? "," : "";
+    const k = key != null ? `<span class="j-k">${esc(JSON.stringify(key))}</span>: ` : "";
+    const doc = note ?? (key != null ? docFor(ctx, key, v) : "");
+    if (v === null || typeof v !== "object") { lines.push(ind + k + prim(v) + c + doc); return; }
+    const arr = Array.isArray(v), entries = arr ? v.map(x => [null, x]) : Object.entries(v);
+    const [o, cl] = arr ? ["[", "]"] : ["{", "}"];
+    if (!entries.length) { lines.push(ind + k + o + cl + c + doc); return; }
+    lines.push(ind + k + o + doc);
+    const me = key ?? ctx;
+    entries.forEach(([ck, cv], i) => {
+      let n, lb;
+      if (arr && me === "vin") n = cmt(`input #${i}`);
+      else if (arr && me === "vout") n = cmt(`çıktı ${i}`);
+      else if (arr && labels) n = cmt(`${cv.length / 2} byte · ${labels[i]}`);
+      if (!arr && ck === "witness" && me === "vin") lb = witnessLabels(v.prevout?.scriptpubkey_type, cv, v);
+      walk(cv, depth + 1, arr ? null : ck, me, i < entries.length - 1, n, lb);
+    });
+    lines.push(ind + cl + c);
+  };
+  walk(tx, 0, null, "", false);
+  return lines.join("\n");
+}
+function renderJson() {
+  if (!state.tx) return;
+  if ($("jsonNotes").checked) $("txJson").innerHTML = jsonAnnotated(state.tx);
+  else $("txJson").textContent = JSON.stringify(state.tx, null, 2);
+}
+$("jsonNotes").addEventListener("change", renderJson);
 
 // ---------- ayrıntı penceresi ----------
 let lastFocus = null, detailSeq = 0;
@@ -466,6 +1237,7 @@ async function openDetail({ txid, vout, spender }) {
           <div class="addr">${esc(out.scriptpubkey_address || "adres biçimi yok")}</div>
           <div class="hint">Kilit türü: ${esc(lock.name)}</div>
           <p>${lock.how(esc(payload))}</p>
+          ${ANAT_OF[out.scriptpubkey_type] ? `<a class="anat-link" href="#anatomi/${ANAT_OF[out.scriptpubkey_type]}">${esc(shortType(out.scriptpubkey_type))} anatomisi →</a>` : ""}
         </div>
       </div>`;
 
@@ -496,7 +1268,7 @@ async function openDetail({ txid, vout, spender }) {
 
       <div class="sec"><h4>Doğuran işlem</h4>
         <div class="grid">${kvHtml([
-          ["txid", tx.txid], ["Bu banknotun sırası", `vout ${vout} / ${tx.vout.length} output`],
+          ["txid", tx.txid, "", true], ["Bu banknotun sırası", `vout ${vout} / ${tx.vout.length} output`],
           ["Input sayısı", fmt(tx.vin.length)], ["Fee", isCoinbase ? "—" : `${fmt(tx.fee)} sat`],
           ["Boyut", `${fmt(vsize)} vB (${fmt(tx.weight)} WU)`], ["Fee oranı", isCoinbase ? "—" : `${(tx.fee / vsize).toFixed(2)} sat/vB`],
         ])}</div>
@@ -514,6 +1286,7 @@ async function openDetail({ txid, vout, spender }) {
 }
 
 function closeDetail() {
+  if ($("backdrop").hidden) return;
   $("backdrop").hidden = true; document.body.style.overflow = "";
   if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
 }
@@ -522,14 +1295,16 @@ $("backdrop").addEventListener("click", e => { if (e.target.id === "backdrop") c
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("backdrop").hidden) closeDetail(); });
 
 // ---------- genel ----------
+document.addEventListener("click", e => { const b = e.target.closest("[data-copy]"); if (b) { e.stopPropagation(); copy(b.dataset.copy, b); } });
 async function copy(text, btn) {
   try { await navigator.clipboard.writeText(text); btn.textContent = "kopyalandı"; }
   catch { btn.textContent = "kopyalanamadı"; }
   setTimeout(() => (btn.textContent = "kopyala"), 1200);
 }
-function showMsg(text, isErr) {
-  const m = $("msg"); m.textContent = text; m.className = "msg" + (isErr ? " err" : ""); m.hidden = !text;
+function showMsg(text, isErr, cls = "") {
+  const m = $("msg"); m.textContent = text; m.className = "msg" + (isErr ? " err" : "") + (cls ? " " + cls : ""); m.hidden = !text;
 }
+function showLoading(on) { $("loading").hidden = !on; if (on) showMsg(""); }
 function download(name, data) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
@@ -537,26 +1312,93 @@ function download(name, data) {
 }
 const stamp = () => new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
+let runSeq = 0;
 async function run(query) {
+  const seq = ++runSeq;
   const network = $("net").value;
   if (network !== state.network) state.txCache.clear();
-  state.network = network;
+  state.network = network; state.usedOffline = false;
+  document.body.classList.add("results");
+  $("q").value = query;
   $("go").disabled = true; $("addrView").hidden = true; $("txView").hidden = true;
-  showMsg("Sorgulanıyor…");
+  showLoading(true);
   try {
     if (isTxid(query)) await loadTx(query.toLowerCase(), network);
     else await loadAddress(query, network);
-    if ($("msg").textContent === "Sorgulanıyor…") showMsg("");
+    if (seq !== runSeq) return;
+    if (!$("msg").classList.contains("info")) showMsg("");
+    if (state.usedOffline) showMsg(`İnternete ulaşılamadı: ${new Date(OFFLINE.saved_at).toLocaleString("tr-TR")} tarihinde kaydedilmiş yedek veri gösteriliyor.`, false, "info");
     window.scrollTo({ top: 0 });
   } catch (err) {
-    showMsg("Hata: " + err.message, true);
+    if (seq === runSeq) showMsg("Hata: " + err.message, true);
   } finally {
-    $("go").disabled = false;
+    if (seq === runSeq) { $("go").disabled = false; showLoading(false); }
   }
 }
-function loadTxAndShow(txid) { $("q").value = txid; run(txid); }
 
-$("form").addEventListener("submit", e => { e.preventDefault(); const q = $("q").value.trim(); if (q) run(q); });
+// Sorgu adres çubuğunda durur: #q=<txid|adres>&net=<ağ>. Geri tuşu ve yenileme çalışır.
+function navigate(q, net = $("net").value) {
+  const h = "#" + new URLSearchParams({ q, net });
+  if (location.hash === h) run(q); else location.hash = h;
+}
+// #q=…&net=… → zincir · #anatomi/<sekme> → anatomi · boş → anasayfa
+function route() {
+  const h = location.hash.slice(1);
+  if (h.startsWith("anatomi")) return showAnatomy(h.split("/")[1]);
+  const p = new URLSearchParams(h), q = p.get("q");
+  if (q) {
+    if (PROVIDERS[p.get("net")]) $("net").value = p.get("net");
+    state.lastChain = location.hash; closeDetail(); setSection("zincir"); run(q);
+  } else showHome();
+}
+function setSection(name) {
+  document.body.classList.toggle("anat", name === "anatomi");
+  $("anatomi").hidden = name !== "anatomi";
+  document.querySelectorAll("#sections a").forEach(a => a.setAttribute("aria-current", a.dataset.s === name ? "page" : "false"));
+}
+function showAnatomy(tab) {
+  const entering = $("anatomi").hidden;
+  ++runSeq; closeDetail(); showLoading(false); showMsg(""); $("go").disabled = false;
+  document.body.classList.add("results");
+  $("addrView").hidden = true; $("txView").hidden = true;
+  setSection("anatomi");
+  Anatomy.show(tab);
+  const tabsTop = $("anatTabs").offsetTop - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--topbar-h")) || 58);
+  if (entering) window.scrollTo({ top: 0 }); else if (window.scrollY > tabsTop) window.scrollTo({ top: tabsTop });
+}
+$("sections").querySelector('[data-s="zincir"]').addEventListener("click", e => {
+  e.preventDefault();
+  if (state.lastChain) location.hash = state.lastChain;
+  else { history.pushState(null, "", location.pathname + location.search); showHome(); }
+});
+document.addEventListener("click", e => { const b = e.target.closest("[data-chain]"); if (b) navigate(b.dataset.chain, "mainnet"); });
+new ResizeObserver(() => document.documentElement.style.setProperty("--topbar-h", document.querySelector(".top").offsetHeight + "px")).observe(document.querySelector(".top"));
+function showHome() {
+  ++runSeq; closeDetail(); setSection("zincir");
+  document.body.classList.remove("results");
+  $("addrView").hidden = true; $("txView").hidden = true; showMsg(""); showLoading(false); $("go").disabled = false;
+  $("q").value = ""; window.scrollTo({ top: 0 });
+}
+const loadTxAndShow = txid => navigate(txid);
+window.addEventListener("hashchange", route);
+$("home").addEventListener("click", () => { if (location.hash) history.pushState(null, "", location.pathname + location.search); showHome(); $("q").focus(); });
+document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => navigate(b.dataset.q, "mainnet")));
+$("form").addEventListener("submit", e => { e.preventDefault(); const q = $("q").value.trim(); if (q) navigate(q); });
+
+// Klavye: "/" aramaya odaklanır, "P" sunum modunu açıp kapatır
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if (e.key === "/") { e.preventDefault(); $("q").focus(); $("q").select(); }
+  if (e.key === "p" || e.key === "P") togglePresent();
+});
+function togglePresent(on = !document.body.classList.contains("present")) {
+  document.body.classList.toggle("present", on);
+  $("present").setAttribute("aria-pressed", on);
+  try { localStorage.setItem("present", on ? "1" : ""); } catch (_) {}
+}
+$("present").addEventListener("click", () => togglePresent());
+try { if (localStorage.getItem("present")) togglePresent(true); } catch (_) {}
+route();
 $("dl").addEventListener("click", () => state.report && download(`utxos_${state.report.header.address}_${stamp()}.json`, state.report));
 $("dlTx").addEventListener("click", () => state.tx && download(`tx_${state.tx.txid}_${stamp()}.json`, state.tx));
 </script>

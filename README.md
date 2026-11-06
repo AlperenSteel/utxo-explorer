@@ -1,23 +1,44 @@
-# UTXO ve İşlem Gezgini
+# UTXO Gezgini
 
-Bitcoin'in UTXO modelini öğrenirken yazdığım küçük bir araç. Bir **adres** girince o adresin harcanmamış çıktılarını (UTXO), bir **txid** girince işlemin bütün alanlarını gösterir. Her banknotun kilidini ("kim harcayabilir?") ve input'larda kilidi açan veriyi (scriptSig, witness) insan diliyle açıklar.
+Bitcoin'in UTXO modelini anlatmak için yazdığım, tarayıcıda çalışan bir araç. İki bölümü var:
 
-*A small learning tool for Bitcoin's UTXO model: look up an address's unspent outputs or decode every field of a transaction, with plain-language explanations of each output's locking script and each input's unlocking data. UI and docs are in Turkish.*
+- **Zincir:** canlı zincirde adres ve işlem gezgini. Bir adresin harcanmamış çıktılarını (UTXO) daire haritası ve liste olarak, bir işlemin girişlerini, çıkışlarını, para akışını ve ham byte'larını alan alan gösterir. Her banknotun kilidini ("kim harcayabilir?") ve input'larda kilidi açan veriyi (scriptSig, witness) insan diliyle açıklar.
+- **Anatomi:** aynı ödemenin Legacy (P2PKH), SegWit v0 (P2WPKH) ve Taproot (P2TR) ile kurulmuş hâlleri; her imzanın hangi byte'ları mühürlediği, imza kopyalama saldırısı ve `input_index`'in neden mesajda olduğu.
 
-Veriler public [Esplora API](https://github.com/Blockstream/esplora/blob/master/API.md)'sinden gelir (mempool.space, yedek olarak blockstream.info). Sunucu, kurulum ya da bağımlılık yok.
+*A browser-based teaching tool for Bitcoin's UTXO model: a live address / transaction explorer (UTXO bubble map, money-flow diagram, byte-level decoder) plus a "transaction anatomy" section comparing what Legacy, SegWit v0 and Taproot signatures commit to. UI and docs are in Turkish.*
+
+Canlı veriler public [Esplora API](https://github.com/Blockstream/esplora/blob/master/API.md)'sinden gelir (mempool.space, yedek olarak blockstream.info). Sunucu, kurulum, derleme ya da bağımlılık yok.
 
 ## Özellikler
 
-**Tarayıcı arayüzü (`index.html`)**
+**Zincir**
 - Adres ya da txid'i otomatik ayırt eder; mainnet / testnet / signet
-- Adres görünümü: özet (UTXO sayısı, toplam / onaylı / onaysız değer, işlem sayısı, toplam alınan / harcanan) ve coin selection için büyükten küçüğe sıralı UTXO listesi
-- İşlem görünümü: versiyon, locktime, boyut / ağırlık / vbyte, fee ve fee oranı, SegWit, RBF, coinbase; `Σ input − Σ output = fee` kontrolü; input ve output tabloları; ham hex ve JSON
-- Ayrıntı penceresi:
-  - **Output / UTXO:** kilit türü ve kim harcayabilir, scriptPubKey (hex + asm), onay sayısı, harcanma durumu
-  - **Input:** harcanan eski banknot + kilidi açan veri (scriptSig, etiketli witness öğeleri, P2SH zarfından ne çıktığı)
-- Banknottan banknota, işlemden işleme sayfa içinde gezinme
+- **UTXO daire haritası:** her UTXO bir daire (büyük daire = büyük miktar, logaritmik; renk = yaş); büyükler ortada, elips biçiminde dizilir; üzerine gelince büyür ve ayrıntı gösterir, tıklayınca detay penceresi açılır
+- Adres özeti (UTXO sayısı, toplam / onaylı / onaysız değer, işlem sayısı, toplam alınan / harcanan) ve büyükten küçüğe sıralı UTXO listesi
+- **Banknotların akışı:** girişlerden işleme, işlemden çıkışlara ve fee'ye giden şeritler; kalınlık miktarla orantılı, kutular tıklanabilir
+- İşlem özeti: versiyon, locktime, boyut / ağırlık / vbyte, fee ve fee oranı, SegWit, RBF, coinbase (BIP34 blok yüksekliği ve madenci etiketi dahil); `Σ input − Σ output = fee` kontrolü
+- Ham byte çözümleyici: işlemin hex'i alan alan okunur; renkli hex ve tablo birbirine bağlı. Byte'lardan txid (SHA256d), wtxid, boyut ve ağırlık hesaplanıp API ile karşılaştırılır
+- Açıklamalı JSON: API'nin döndürdüğü her alanın yanında açıklama ve alanın kaynağı (byte'larda yazıyor / byte'lardan hesaplanıyor / zincirden geliyor)
+- Ayrıntı penceresi: output için kilit türü, scriptPubKey, onay ve harcanma durumu; input için harcanan banknot ve kilidi açan veri (scriptSig, etiketli witness öğeleri, P2SH zarfından ne çıktığı)
 - Sonucu JSON olarak indirme
-- Açık / koyu tema
+
+**Anatomi**
+- Ali'nin iki banknotla Ayşe'ye yaptığı ödeme üç kilit türüyle: ham hex ↔ alan tablosu, iki imzanın byte'ları, imzalanan mesaj (preimage), kapsar / kapsamaz listesi, "uygulama miktarda yalan söylerse" testi
+- Karşılaştırma matrisi ve sighash tipleri
+- **Hangi input?** `input_index` olmadan Taproot imzasının kopyalanabilmesi (gerçek kural / hayali kural)
+- **Dolandırıcılık akışı:** rol kartları, sıra diyagramı, adım adım PSBT'ler
+- İmzalar gerçek (libsecp256k1 ile doğrulandı); önceki işlemler ve anahtarlar örnek için üretildi, ağa yayınlanamaz
+
+**İki bölüm arasında**
+- Her kilit türü sekmesinden zincirdeki gerçek bir örneğe (P2PKH, P2WPKH, P2TR) geçiş
+- Gezginde bir banknotun kilidinden ilgili anatomi sekmesine geçiş
+
+**Sunum için**
+- **Sunum modu** (sağ üstteki düğme ya da `P`): her şeyi büyütür
+- `/` aramaya odaklanır
+- Adres çubuğunda durum: `#q=<txid|adres>&net=mainnet`, `#anatomi/taproot` gibi. Geri tuşu, yenileme ve hazır sekmeler çalışır
+- **İnternetsiz yedek:** anasayfadaki örneklerin ve köprü işlemlerinin verisi `offline-data.js`'te durur; internet yoksa ya da sağlayıcı 5 saniyede cevap vermezse bu yedek gösterilir
+- Açık / koyu tema, telefon genişliğinde de çalışır
 
 **Komut satırı (`utxo_list.py`)**
 - Bir adresin UTXO listesini, başlığında adres bilgileri ve toplamlar olan bir JSON dosyasına yazar
@@ -27,7 +48,15 @@ Veriler public [Esplora API](https://github.com/Blockstream/esplora/blob/master/
 
 ### Arayüz
 
-`index.html` dosyasını tarayıcıda aç (çift tıklamak yeterli). Kutuya bir adres ya da txid yaz, ağı seç, **Sorgula**'ya bas. Satırlara tıklayınca ayrıntı penceresi açılır.
+`index.html` dosyasını tarayıcıda açmak yeterli (çift tıklama). GitHub Pages ile de yayınlanabilir: depo ayarlarında *Pages → Deploy from a branch → main / (root)*.
+
+### Sunumdan önce: yedeği tazele
+
+```bash
+python3 offline_kaydet.py
+```
+
+Örnek işlemlerin ve adreslerin (her adresin en büyük 15 UTXO'su dahil) yanıtlarını `offline-data.js`'e yazar; `curl` gerekir. Onay sayıları ve UTXO durumları kayıt anındaki gibi görünür, bu yüzden sunumdan kısa süre önce çalıştırmak iyi olur. Örnekler betiğin başındaki `TXS` ve `ADDRESSES` listelerinde, anasayfadaki butonlar `index.html`'de.
 
 ### Komut satırı
 
@@ -56,6 +85,16 @@ python3 utxo_list.py <adres> [mainnet|testnet|signet] [-o cikti.json]
 ```
 
 Miktarlar her zaman tam sayı **satoshi** olarak tutulur; BTC değerleri yuvarlama hatası olmasın diye metin olarak yazılır.
+
+## Dosyalar
+
+| Dosya | İçerik |
+|---|---|
+| `index.html` | Uygulama: arayüz, Zincir bölümü, yönlendirme |
+| `anatomi.js`, `anatomi.css` | Anatomi bölümü: örnek işlemlerin verisi, imzalar ve sayfalar |
+| `offline-data.js` | İnternetsiz yedek (`offline_kaydet.py` üretir) |
+| `offline_kaydet.py` | Yedeği tazeleyen betik |
+| `utxo_list.py` | Komut satırı: adresin UTXO listesini JSON'a yazar |
 
 ## Gizlilik notu
 

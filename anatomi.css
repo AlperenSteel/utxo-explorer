@@ -1,0 +1,224 @@
+/* Anatomi bölümü: aynı ödeme, üç kilit türü. Tüm kurallar #anatomi altında, uygulamanın renkleriyle */
+#anatomi{
+  --sunk:var(--sunken); --ink:var(--fg); --bad:var(--err);
+  --c-meta:#6a717c; --c-in:#c25e00; --c-out:#1a66ad; --c-sig:#0f7a56; --c-wit:#7340d8;
+  --f-display:var(--sans); --f-body:var(--sans); --f-mono:var(--mono);
+  display:flex; flex-direction:column; gap:28px;
+}
+@media (prefers-color-scheme: dark){ #anatomi{ --c-meta:#a0a7b2; --c-in:#ffa94d; --c-out:#6db3f2; --c-sig:#4fd0a0; --c-wit:#b79dff; } }
+/* gezgin stillerinden sızanları sıfırla */
+#anatomi table{min-width:0}
+#anatomi th,#anatomi td{white-space:normal}
+#anatomi .chip{width:auto;height:auto;background:none;margin-right:0;vertical-align:baseline;display:inline-block}
+#anatomi .x{width:auto;height:auto;padding:0;border-radius:0;line-height:inherit}
+#anatomi .hex span.wit{display:inline;margin:0;font-size:inherit}
+#anatomi .verdict,#anatomi .banner{color:inherit}
+#anatomi details{border-top:0;padding-top:0;margin-top:0}
+#anatomi .legend{margin:0}
+#anatomi summary{font-weight:400}
+/* Türkçe büyük harf dönüşümü İngilizce terimleri bozuyor (weight → WEİGHT) */
+#anatomi *{text-transform:none!important}
+#anatomi h1,#anatomi h2,#anatomi h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+#anatomi h1{font-size:clamp(28px,4.4vw,42px);font-weight:800;line-height:1.08}
+#anatomi h2{font-size:22px;font-weight:700}
+#anatomi h3{font-size:17px;font-weight:700}
+#anatomi p{margin:0;max-width:72ch}
+#anatomi .eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--c-in);font-weight:500}
+#anatomi .mono{font-family:var(--f-mono)}
+#anatomi .muted{color:var(--muted)}
+#anatomi code{font-family:var(--f-mono);font-size:.92em;background:var(--sunk);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+#anatomi .anat-head{display:flex;flex-direction:column;gap:12px}
+#anatomi .scenario{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+#anatomi .scenario>div{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+#anatomi .scenario .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#anatomi .scenario .v{font-family:var(--f-mono);font-size:15px;font-variant-numeric:tabular-nums}
+#anatomi .note{font-size:13.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:12px}
+#anatomi nav.tabs{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;border-bottom:1px solid var(--line)}
+#anatomi nav.tabs a{white-space:nowrap;flex:none;font-family:var(--f-display);font-weight:600;text-decoration:none;color:var(--muted);padding:8px 14px;border-radius:8px;border:1px solid transparent;display:flex;gap:8px;align-items:baseline}
+#anatomi nav.tabs a small{font-family:var(--f-mono);font-weight:400;font-size:11.5px}
+#anatomi nav.tabs a[aria-current="page"]{color:var(--ink);background:var(--surface);border-color:var(--line)}
+#anatomi nav.tabs a:focus-visible,#anatomi button:focus-visible{outline:2px solid var(--c-out);outline-offset:2px}
+#anatomi section.tx{display:flex;flex-direction:column;gap:26px}
+#anatomi .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+#anatomi .stat{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);min-width:0}
+#anatomi .stat .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#anatomi .stat .v{font-family:var(--f-mono);font-size:16px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#anatomi .ids{display:grid;gap:6px;font-size:13px}
+#anatomi .ids div{display:grid;grid-template-columns:70px 1fr;gap:10px;min-width:0}
+#anatomi .ids span:last-child{font-family:var(--f-mono);overflow-wrap:anywhere;min-width:0}
+#anatomi .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+#anatomi .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+#anatomi .hex{font-family:var(--f-mono);font-size:13px;line-height:1.85;word-break:break-all;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+#anatomi .hex span{cursor:pointer;border-radius:3px;padding:1px 0;transition:background .12s}
+#anatomi .hex span.wit{text-decoration:underline dotted;text-underline-offset:4px}
+#anatomi .hex span.hl,#anatomi .hex span:hover{background:color-mix(in srgb,currentColor 18%,transparent)}
+#anatomi .meta{color:var(--c-meta)}
+#anatomi .in{color:var(--c-in)}
+#anatomi .out{color:var(--c-out)}
+#anatomi .sig{color:var(--c-sig)}
+#anatomi .witc{color:var(--c-wit)}
+#anatomi .legend .meta i{background:var(--c-meta)}
+#anatomi .legend .in i{background:var(--c-in)}
+#anatomi .legend .out i{background:var(--c-out)}
+#anatomi .legend .sig i{background:var(--c-sig)}
+#anatomi .legend .witc i{background:var(--c-wit)}
+#anatomi .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+#anatomi table{border-collapse:collapse;width:100%;font-size:13.5px}
+#anatomi th,#anatomi td{text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+#anatomi th{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;background:var(--surface);position:sticky;top:0}
+#anatomi tr:last-child td{border-bottom:0}
+#anatomi td.h{font-family:var(--f-mono);font-size:12.5px;word-break:break-all;min-width:220px;max-width:460px}
+#anatomi td.b{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+#anatomi td.name{white-space:nowrap}
+#anatomi tr.hl td{background:color-mix(in srgb,var(--c-out) 10%,transparent)}
+#anatomi tr.witrow td.name::after{content:"witness";font-family:var(--f-mono);font-size:10.5px;color:var(--c-wit);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-left:8px}
+#anatomi .sigs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:18px}
+#anatomi .card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+#anatomi .card .utxo{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+#anatomi .card .utxo span:nth-child(odd){color:var(--muted)}
+#anatomi .card .utxo span:nth-child(even){font-family:var(--f-mono);overflow-wrap:anywhere;min-width:0}
+#anatomi .sigbytes{display:flex;flex-wrap:wrap;gap:4px;font-family:var(--f-mono);font-size:12px}
+#anatomi .sigbytes div{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:6px;padding:4px 7px;min-width:0;max-width:100%}
+#anatomi .sigbytes div b{font-weight:500;word-break:break-all;color:var(--c-sig)}
+#anatomi .sigbytes div small{font-family:var(--f-body);font-size:11px;color:var(--muted)}
+#anatomi .where{font-size:13px;color:var(--muted)}
+#anatomi .pre{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+#anatomi .pre .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:7px 10px;border-bottom:1px solid var(--line);font-size:12.5px}
+#anatomi .pre .row:last-child{border-bottom:0}
+#anatomi .pre .row .n{min-width:0}
+#anatomi .pre .row .x{grid-column:1 / -1;font-family:var(--f-mono);font-size:11.5px;word-break:break-all;color:var(--muted)}
+#anatomi .pre .row.empty .x::before{content:"(0 byte)";font-style:italic}
+#anatomi .chip{font-family:var(--f-mono);font-size:10.5px;padding:1px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap;align-self:start}
+#anatomi .chip.kapsar{color:var(--ok)}
+#anatomi .chip.yeni{color:var(--warn)}
+#anatomi .chip.bos{color:var(--bad)}
+#anatomi .chip.yerine{color:var(--c-out)}
+#anatomi .pre .row.yeni{background:color-mix(in srgb,var(--warn) 9%,transparent)}
+#anatomi .pre .row.bos{background:color-mix(in srgb,var(--bad) 8%,transparent)}
+#anatomi .pre .row.yerine{background:color-mix(in srgb,var(--c-out) 8%,transparent)}
+#anatomi .hashline{font-size:12.5px;display:flex;flex-direction:column;gap:2px}
+#anatomi .hashline .x{font-family:var(--f-mono);word-break:break-all}
+#anatomi .cov{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+#anatomi .cov>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+#anatomi .cov h4{margin:0;font-family:var(--f-display);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+#anatomi .cov .yes h4{color:var(--ok)}
+#anatomi .cov .no h4{color:var(--bad)}
+#anatomi .cov ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+#anatomi .cov li{overflow-wrap:anywhere}
+#anatomi details.prewrap summary{cursor:pointer;font-size:13px;color:var(--muted)}
+#anatomi details.prewrap .x{font-family:var(--f-mono);font-size:11.5px;word-break:break-all;margin-top:6px;background:var(--sunk);padding:8px 10px;border-radius:6px}
+#anatomi .lie td.res{font-family:var(--f-mono);font-size:12.5px;white-space:nowrap}
+#anatomi .lie .broke{color:var(--bad);font-weight:700}
+#anatomi .lie .same{color:var(--muted)}
+#anatomi .matrix td.c{text-align:center;font-family:var(--f-mono);font-weight:700}
+#anatomi .matrix td.c.y{color:var(--ok)}
+#anatomi .matrix td.c.n{color:var(--bad)}
+#anatomi .matrix td.c.p{color:var(--warn);font-weight:500;font-size:12px}
+#anatomi .block{display:flex;flex-direction:column;gap:12px}
+#anatomi .three{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
+#anatomi .three .card h3{font-size:16px}
+#anatomi .bigfig{font-family:var(--f-mono);font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+#anatomi .bigfig small{font-size:13px;font-weight:400;color:var(--muted)}
+#anatomi td.d{font-family:var(--f-mono);font-size:12px;word-break:break-all;min-width:160px}
+#anatomi tr.differ td{background:color-mix(in srgb,var(--warn) 12%,transparent)}
+#anatomi tr.differ td.d{color:var(--ink);font-weight:700}
+#anatomi tr.sameRow td.d{color:var(--muted)}
+#anatomi .steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px;counter-reset:st}
+#anatomi .steps li{counter-increment:st;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface);font-size:13.5px;display:flex;flex-direction:column;gap:4px}
+#anatomi .steps li::before{content:"Adım " counter(st);font-family:var(--f-mono);font-size:11px;color:var(--c-in);letter-spacing:.06em;text-transform:uppercase}
+#anatomi .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--sunk);gap:3px;flex-wrap:wrap}
+#anatomi .seg button{font:inherit;font-family:var(--f-display);font-weight:600;font-size:14px;border:0;background:transparent;color:var(--muted);padding:8px 14px;border-radius:7px;cursor:pointer}
+#anatomi .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 15%,transparent)}
+#anatomi .demo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;align-items:start}
+#anatomi .screen{border:2px solid var(--ink);border-radius:16px;padding:16px;background:var(--surface);display:flex;flex-direction:column;gap:8px;font-size:14px}
+#anatomi .screen .bar{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+#anatomi .screen dl{margin:0;display:grid;grid-template-columns:1fr auto;gap:6px 12px}
+#anatomi .screen dt{color:var(--muted)}
+#anatomi .screen dd{margin:0;font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+#anatomi .screen .tot{border-top:1px solid var(--line);padding-top:8px;font-weight:700}
+#anatomi .screen .btn{align-self:stretch;text-align:center;font-family:var(--f-display);font-weight:700;padding:9px;border-radius:9px;background:var(--ink);color:var(--surface)}
+#anatomi .reality dd.bad,#anatomi .reality dt.bad{color:var(--bad);font-weight:700}
+#anatomi .verdict{border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;border:2px solid var(--line)}
+#anatomi .verdict.good{border-color:var(--ok)}
+#anatomi .verdict.bad{border-color:var(--bad)}
+#anatomi .verdict .head{font-family:var(--f-display);font-size:20px;font-weight:800}
+#anatomi .verdict.good .head{color:var(--ok)}
+#anatomi .verdict.bad .head{color:var(--bad)}
+#anatomi .kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:12.5px}
+#anatomi .kv span:nth-child(odd){color:var(--muted)}
+#anatomi .kv span:nth-child(even){font-family:var(--f-mono);word-break:break-all}
+#anatomi .kv .eq{color:var(--bad);font-weight:700}
+#anatomi .kv .ne{color:var(--ok);font-weight:700}
+#anatomi .hexmini{font-family:var(--f-mono);font-size:12px;word-break:break-all;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:10px 12px;line-height:1.7}
+#anatomi .hexmini .w0{color:var(--c-sig);font-weight:700}
+#anatomi .hexmini .w1{color:var(--bad);font-weight:700}
+#anatomi .pre .row.idx{background:color-mix(in srgb,var(--warn) 14%,transparent)}
+#anatomi .pre .row.gone{opacity:.45;text-decoration:line-through}
+#anatomi .ln0{--lc:var(--c-sig)}
+#anatomi .ln1{--lc:var(--c-out)}
+#anatomi .ln2{--lc:var(--bad)}
+#anatomi .ln3{--lc:var(--c-meta)}
+#anatomi .c0{color:var(--c-sig)}
+#anatomi .c1{color:var(--c-out)}
+#anatomi .banner{border-radius:10px;padding:10px 14px;font-size:14px;max-width:none;border:1px solid}
+#anatomi .banner.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,transparent)}
+#anatomi .banner.good{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 8%,transparent)}
+#anatomi .roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
+#anatomi .role{border-top:4px solid var(--lc)}
+#anatomi .role p{font-size:14px}
+#anatomi .rk{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--lc);font-weight:700}
+#anatomi .seqwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:8px}
+#anatomi .seq{display:block;font-family:var(--f-body)}
+#anatomi .seq .lanehead{fill:var(--bg);stroke:var(--lc);stroke-width:2}
+#anatomi .seq .lt{fill:var(--ink);font-size:13px;font-weight:700}
+#anatomi .seq .ls{fill:var(--muted);font-size:11px}
+#anatomi .seq .life{stroke:var(--lc);stroke-width:1.5;stroke-dasharray:2 4;opacity:.7}
+#anatomi .seq .num{fill:var(--sunk);stroke:var(--line)}
+#anatomi .seq .numt{fill:var(--ink);font-size:11px;font-weight:700;font-family:var(--f-mono)}
+#anatomi .seq .arr{stroke:var(--ink);stroke-width:1.6}
+#anatomi .seq .arr.dashed{stroke-dasharray:5 4;stroke:var(--muted)}
+#anatomi .seq .ahp{fill:var(--ink)}
+#anatomi .seq .al{fill:var(--ink);font-size:12px}
+#anatomi .seq .selfbox{fill:var(--sunk);stroke:var(--line)}
+#anatomi .seq .sl{fill:var(--ink);font-size:12px}
+#anatomi .seq .row{cursor:pointer}
+#anatomi .seq .row:hover .num,#anatomi .seq .row:focus .num{fill:var(--c-in);stroke:var(--c-in)}
+#anatomi .seq .row:hover .numt,#anatomi .seq .row:focus .numt{fill:var(--surface)}
+#anatomi .seq .row:focus{outline:none}
+#anatomi .seq .row.warn .selfbox{stroke:var(--warn);fill:color-mix(in srgb,var(--warn) 12%,var(--surface))}
+#anatomi .seq .row.bad .selfbox{stroke:var(--bad);fill:color-mix(in srgb,var(--bad) 12%,var(--surface))}
+#anatomi .seq .row.bad .al,#anatomi .seq .row.bad .sl{fill:var(--bad);font-weight:700}
+#anatomi .seq .row.good .selfbox{stroke:var(--ok);fill:color-mix(in srgb,var(--ok) 12%,var(--surface))}
+#anatomi .seq .row.good .sl{fill:var(--ok);font-weight:700}
+#anatomi .seq .row.off{opacity:.35}
+#anatomi .fsteps{display:flex;flex-direction:column;gap:12px}
+#anatomi .fstep{border:1px solid var(--line);border-left:4px solid var(--lc);border-radius:10px;background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:10px;scroll-margin-top:70px;min-width:0}
+#anatomi .fhead{display:flex;gap:12px;align-items:flex-start}
+#anatomi .fnum{flex:none;width:28px;height:28px;border-radius:50%;background:var(--lc);color:var(--surface);display:grid;place-items:center;font-family:var(--f-mono);font-weight:700;font-size:13px}
+#anatomi .who{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--lc);font-weight:700}
+#anatomi .fbody{display:flex;flex-direction:column;gap:10px;min-width:0}
+#anatomi .fbody p{font-size:14.5px}
+#anatomi .carry{border:1px dashed var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+#anatomi .cstate{font-family:var(--f-mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--c-in);font-weight:700}
+#anatomi .psbt{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}
+#anatomi .pcol{display:flex;flex-direction:column;gap:6px;min-width:0}
+#anatomi .ph{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+#anatomi .pi{font-size:13px;background:var(--sunk);border-radius:6px;padding:6px 8px;overflow-wrap:anywhere}
+#anatomi .tagA,#anatomi .tagB,#anatomi .sigok,#anatomi .sigcopy{font-family:var(--f-mono);font-size:11px;padding:0 5px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+#anatomi .tagA{color:var(--c-out)}
+#anatomi .tagB{color:var(--bad)}
+#anatomi .sigok{color:var(--ok)}
+#anatomi .sigcopy{color:var(--bad);font-weight:700}
+#anatomi .knows{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px}
+#anatomi .fcheck{border-radius:8px;padding:8px 12px;font-size:13.5px;border:1px solid var(--line)}
+#anatomi .fcheck.weak{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,transparent)}
+#anatomi .fcheck.stop{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+#anatomi .badtxt{color:var(--bad)}
+#anatomi .goodtxt{color:var(--ok)}
+#anatomi .callout{border-left:3px solid var(--c-in);padding:4px 0 4px 14px;font-size:16px;font-family:var(--f-display);font-weight:600;max-width:70ch}
+#anatomi nav.tabs{top:var(--topbar-h,58px);margin:0 -16px;padding-inline:16px}
+#anatomi .fstep{scroll-margin-top:calc(var(--topbar-h,58px) + 64px)}
+#anatomi .bridge{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:13.5px;color:var(--fg);cursor:pointer}
+#anatomi .bridge:hover{border-color:var(--accent)}
+#anatomi .bridge b{color:var(--accent-ink);font-weight:600}
+@media (prefers-reduced-motion:reduce){#anatomi *{transition:none!important}}
