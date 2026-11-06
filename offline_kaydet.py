@@ -61,6 +61,7 @@ def save_tx(txid, with_inputs=True):
 
 
 get("/blocks/tip/height", text=True)
+get("/v1/fees/recommended")  # harcama simülasyonunun ücret oranı
 for txid in TXS:
     print("işlem", txid[:16])
     save_tx(txid)

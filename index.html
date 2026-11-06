@@ -150,7 +150,7 @@
   .node.k-out rect { stroke: color-mix(in srgb, var(--accent) 55%, var(--line)); }
   .node.utxo rect { stroke: color-mix(in srgb, var(--ok) 60%, var(--line)); }
   .node.k-fee rect { stroke: var(--warn); stroke-dasharray: 4 3; }
-  .node.k-fee .t1, .node.k-coinbase .t1, .node.k-more .t1 { font-family: var(--sans); }
+  .node.k-fee .t1, .node.k-coinbase .t1, .node.k-more .t1, .node.named .t1 { font-family: var(--sans); }
   .node.clickable { cursor: pointer; outline: none; }
   .node.clickable:hover rect, .node.clickable:focus-visible rect { stroke: var(--accent); stroke-width: 2; }
   .txnode rect { fill: var(--fg); }
@@ -170,6 +170,34 @@
   .tip b { font-family: var(--mono); font-size: .9rem; }
   .tip span { opacity: .8; } .tip .mono { font-family: var(--mono); font-size: .75rem; }
   @media (prefers-reduced-motion: reduce) { .bub { animation: none; } .bub-hl { transition: none; } }
+  .bubbles svg.picking .bub { opacity: .14; }
+  .bubbles svg.picking .bub.sel { opacity: 1; stroke: var(--fg); stroke-width: 1.5; }
+
+  /* harcama simülasyonu */
+  .sim-ctl { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end; margin-bottom: 14px; }
+  .sim-ctl label { display: flex; flex-direction: column; gap: 4px; font-size: .76rem; color: var(--muted); }
+  .field { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--surface); color: var(--muted); font-size: .82rem; transition: border-color .15s, box-shadow .15s; }
+  .field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .field input { border: 0; border-radius: 0; padding: 8px 0; width: 10ch; font: 1rem var(--mono); color: var(--fg); background: none; outline: none; }
+  .field input#simRate { width: 5ch; }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--sunken); }
+  .seg button { border: 0; background: none; border-radius: 9px; padding: 5px 14px; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.35; color: var(--muted); }
+  .seg button small { font: .72rem var(--mono); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+  #simSum .kv.bad .v { color: var(--err); }
+  #simSum { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  #simSankey { margin-top: 16px; }
+
+  /* sunum turu */
+  .tour { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: var(--shadow-lg); font-size: .82rem; }
+  .tour > button { border: 0; background: none; width: 30px; height: 30px; padding: 0; border-radius: 999px; font-size: 1.15rem; line-height: 1; color: var(--muted); }
+  .tour > button:hover:not(:disabled) { background: var(--sunken); color: var(--fg); }
+  .tour .lbl { font-weight: 500; white-space: nowrap; padding: 0 2px; }
+  .tour .dots { display: flex; gap: 5px; padding: 0 4px; }
+  .tour .dots button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--fg) 18%, transparent); transition: width .2s, background .2s; }
+  .tour .dots button[aria-current="step"] { width: 18px; background: var(--accent); }
+  body:not(.present) .tour { display: none; }
+  body.present { padding-bottom: 56px; }
 
   /* sunum modu düğmesi ve büyütme */
   .ghost { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: .82rem; color: var(--muted); white-space: nowrap; }
@@ -291,7 +319,20 @@
     </div>
     <div class="card">
       <h2>Harcanmamış çıktılar</h2>
+      <div class="sim-ctl" id="simCtl">
+        <label>Gönderilecek<span class="field"><input id="simAmt" inputmode="decimal" autocomplete="off" spellcheck="false">BTC</span></label>
+        <label>Ücret oranı<span class="field"><input id="simRate" inputmode="decimal" autocomplete="off">sat/vB</span></label>
+        <label>Banknot seçimi<span class="seg" id="simStrat" role="group">
+          <button type="button" data-s="big" aria-pressed="true">Büyükten başla<small></small></button>
+          <button type="button" data-s="small" aria-pressed="false">Küçükten başla<small></small></button>
+        </span></label>
+      </div>
       <div class="bubbles" id="bubbles"><div class="tip" id="bubbleTip" hidden></div></div>
+    </div>
+    <div class="card" id="simCard">
+      <h2>Harcama</h2>
+      <div class="grid" id="simSum"></div>
+      <div class="sankey" id="simSankey"></div>
     </div>
     <div class="card">
       <h2>UTXO listesi</h2>
@@ -418,6 +459,12 @@
   </div>
 
 </main>
+<nav class="tour" id="tour" aria-label="Sunum akışı">
+  <button type="button" id="tourPrev" aria-label="Önceki adım">‹</button>
+  <span class="dots" id="tourDots"></span>
+  <span class="lbl" id="tourLabel"></span>
+  <button type="button" id="tourNext" aria-label="Sonraki adım">›</button>
+</nav>
 <footer>Alperen</footer>
 
 <script src="offline-data.js"></script>
@@ -600,9 +647,93 @@ async function loadAddress(address, network) {
     tbody.append(tr);
   });
   renderBubbles(state.report.utxos);
+  setupSim(state.report);
   if (!utxos.length) showMsg("Bu adreste harcanmamış çıktı yok.", false, "info");
   $("addrView").hidden = false;
 }
+
+// ---------- harcama simülasyonu: cüzdan hangi banknotları seçer? ----------
+// Adres türüne göre bir input ve bir output'un yaklaşık sanal boyutu (vB)
+const VB = { P2PKH: [148, 34], P2WPKH: [68, 31], P2TR: [57.5, 43], P2WSH: [104.5, 43], P2SH: [91, 32] };
+const DUST = 546;
+const sim = { report: null, strat: "big", active: false, rateTouched: false, inVB: 68, outVB: 31, baseVB: 10.5 };
+const parseNum = s => Number(String(s).replace(",", ".").trim());
+const btcShort = sat => btc(sat).replace(/\.?0+$/, "");
+const niceAmount = sat => { const p = 10 ** Math.max(0, Math.floor(Math.log10(Math.max(1, sat))) - 1); return Math.round(sat / p) * p; };
+
+// Banknotları sırayla ekler; ücret her yeni input'la büyür. Para üstü toz kadar küçükse ücrete eklenir.
+function pickCoins(utxos, amount, rate, strat) {
+  const order = strat === "big" ? utxos : [...utxos].reverse();
+  const size = (n, outs) => Math.ceil(sim.baseVB + n * sim.inVB + outs * sim.outVB);
+  const picked = []; let sum = 0;
+  for (const u of order) {
+    picked.push(u); sum += u.value_sat;
+    const n = picked.length;
+    if (sum < amount + Math.ceil(size(n, 1) * rate)) continue;
+    const fee2 = Math.ceil(size(n, 2) * rate), change = sum - amount - fee2;
+    if (change >= DUST) return { picked, sum, fee: fee2, change, vsize: size(n, 2) };
+    return { picked, sum, fee: sum - amount, change: 0, vsize: size(n, 1), absorbed: true };
+  }
+  return null;
+}
+function highlightBubbles(list) {
+  const svg = $("bubbles").querySelector("svg"); if (!svg) return;
+  const set = new Set((list || []).map(u => u.outpoint));
+  svg.classList.toggle("picking", !!list);
+  svg.querySelectorAll(".bub").forEach(c => c.classList.toggle("sel", set.has(c.dataset.op)));
+}
+function setupSim(report) {
+  sim.report = report; sim.strat = "big"; sim.active = false; sim.rateTouched = false;
+  const t = report.header.address_type.split(" ")[0];
+  [sim.inVB, sim.outVB] = VB[t] || VB.P2WPKH; sim.baseVB = t === "P2PKH" ? 10 : 10.5;
+  $("simCard").hidden = $("simCtl").hidden = !report.utxos.length;
+  if (!report.utxos.length) return;
+  // Varsayılan miktar: en büyük banknottan biraz fazla, böylece birden çok banknot ve para üstü görünür
+  const total = report.header.total_value_sat;
+  let amt = niceAmount(report.utxos[0].value_sat * 1.3);
+  if (amt > total * 0.9) amt = niceAmount(total * 0.5);
+  $("simAmt").value = btcShort(amt);
+  $("simRate").value = $("simRate").value || 5;
+  renderSim();
+  getJson(`${PROVIDERS[report.header.network][0]}/v1/fees/recommended`)
+    .then(f => { if (sim.report === report && !sim.rateTouched && f.halfHourFee) { $("simRate").value = f.halfHourFee; renderSim(); } })
+    .catch(() => {});
+}
+function renderSim() {
+  const rep = sim.report; if (!rep) return;
+  const amt = Math.round(parseNum($("simAmt").value) * 1e8), rate = parseNum($("simRate").value);
+  const valid = Number.isFinite(amt) && amt > 0 && Number.isFinite(rate) && rate > 0;
+  const res = { big: valid && pickCoins(rep.utxos, amt, rate, "big"), small: valid && pickCoins(rep.utxos, amt, rate, "small") };
+  for (const b of $("simStrat").children) {
+    const r = res[b.dataset.s];
+    b.setAttribute("aria-pressed", b.dataset.s === sim.strat);
+    b.querySelector("small").textContent = r ? `${fmt(r.picked.length)} banknot · ${fmt(r.fee)} sat` : "—";
+  }
+  const r = res[sim.strat];
+  highlightBubbles(sim.active && r ? r.picked : null);
+  if (!valid) { $("simSum").innerHTML = ""; $("simSankey").innerHTML = ""; return; }
+  if (!r) {
+    $("simSum").innerHTML = `<div class="kv bad"><div class="k">Bakiye yetmiyor</div><div class="v">${btc(rep.header.total_value_sat)} BTC var</div><div class="d">Ücretle birlikte ${btcShort(amt)} BTC'den fazlası gerekiyor</div></div>`;
+    $("simSankey").innerHTML = ""; return;
+  }
+  const costly = r.picked.filter(u => u.value_sat < sim.inVB * rate).length;
+  $("simSum").innerHTML = kvHtml([
+    ["Seçilen banknot", `${fmt(r.picked.length)} / ${fmt(rep.utxos.length)}`],
+    ["Girişlerin toplamı", `${btc(r.sum)} BTC`],
+    ["Alıcıya", `${btc(amt)} BTC`],
+    ["Para üstü", r.change ? `${btc(r.change)} BTC` : "yok", r.change ? "Yeni bir banknot olarak bu adrese döner" : "Kalan toz kadar küçük, ücrete eklendi"],
+    ["Ücret", `${fmt(r.fee)} sat`, `≈ ${fmt(r.vsize)} vB × ${rate} sat/vB`],
+    ...(costly ? [["Değerinden pahalı banknot", fmt(costly), `Her biri harcanırken ${fmt(Math.ceil(sim.inVB * rate))} sat ücrete mal oluyor`]] : []),
+  ]);
+  const addr = rep.header.address;
+  const tx = { txid: "simulasyon", fee: r.fee,
+    vin: r.picked.map(u => ({ txid: u.txid, vout: u.vout, label: `${u.txid.slice(0, 10)}…:${u.vout}`, prevout: { value: u.value_sat, scriptpubkey_address: addr } })),
+    vout: [{ value: amt, label: "Alıcı", sub: "yeni banknot" },
+           ...(r.change ? [{ value: r.change, label: "Para üstü", sub: "bu adrese geri döner" }] : [])] };
+  renderSankey(tx, null, r.sum, amt + r.change, false, { box: "simSankey", static: true, label: "Yeni işlem", sub: "taslak" });
+}
+for (const id of ["simAmt", "simRate"]) $(id).addEventListener("input", () => { sim.active = true; if (id === "simRate") sim.rateTouched = true; renderSim(); });
+$("simStrat").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; sim.strat = b.dataset.s; sim.active = true; renderSim(); });
 
 // ---------- UTXO haritası: daireler, büyükler ortada, sarmal elips ----------
 function renderBubbles(utxos) {
@@ -662,7 +793,7 @@ function renderBubbles(utxos) {
   svg.setAttribute("viewBox", `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", `${placed.length} UTXO'nun daire haritası`);
-  svg.innerHTML = placed.map((c, i) => `<circle class="bub${c.u.confirmed ? "" : " unconf"}" data-i="${i}" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${c.r.toFixed(1)}" fill="${color(c.u)}" style="animation-delay:${(Math.min(i, steps) / steps * 0.7).toFixed(2)}s"/>`).join("")
+  svg.innerHTML = placed.map((c, i) => `<circle class="bub${c.u.confirmed ? "" : " unconf"}" data-i="${i}" data-op="${c.u.outpoint}" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${c.r.toFixed(1)}" fill="${color(c.u)}" style="animation-delay:${(Math.min(i, steps) / steps * 0.7).toFixed(2)}s"/>`).join("")
     + `<circle class="bub-hl" r="0"/>`;
   box.prepend(svg);
 
@@ -778,7 +909,8 @@ async function loadTx(txid, network) {
 }
 
 // ---------- akış şeması: girişler → işlem → çıkışlar + fee ----------
-function renderSankey(tx, outspends, sumIn, sumOut, isCoinbase) {
+// opts: { box, label, sub, static }: simülasyon da aynı şemayı kullanır
+function renderSankey(tx, outspends, sumIn, sumOut, isCoinbase, opts = {}) {
   const MAX = 7;  // bir tarafta en çok bu kadar kutu; fazlası tek kutuda toplanır
   const shortAddr = a => a && a.length > 22 ? a.slice(0, 10) + "…" + a.slice(-8) : a;
   const group = (items, label) => items.length <= MAX ? items
@@ -786,12 +918,12 @@ function renderSankey(tx, outspends, sumIn, sumOut, isCoinbase) {
 
   const ins = group(isCoinbase
     ? [{ kind: "coinbase", value: sumOut, title: "Yeni basılan BTC", sub: "blok ödülü + bloktaki fee'ler" }]
-    : tx.vin.map((v, i) => ({ kind: "in", i, value: v.prevout?.value || 0, title: shortAddr(v.prevout?.scriptpubkey_address) || shortType(v.prevout?.scriptpubkey_type) || "?", sub: "harcanıyor" })), "giriş");
+    : tx.vin.map((v, i) => ({ kind: "in", i, value: v.prevout?.value || 0, title: v.label || shortAddr(v.prevout?.scriptpubkey_address) || shortType(v.prevout?.scriptpubkey_type) || "?", sub: "harcanıyor" })), "giriş");
   let outs = tx.vout.map((o, n) => {
     const sp = outspends?.[n];
-    return { kind: o.scriptpubkey_type === "op_return" ? "data" : "out", n, value: o.value,
-      title: shortAddr(o.scriptpubkey_address) || (o.scriptpubkey_type === "op_return" ? "OP_RETURN (veri)" : shortType(o.scriptpubkey_type)),
-      sub: o.scriptpubkey_type === "op_return" ? "harcanamaz" : !sp ? "yeni banknot" : sp.spent ? "sonradan harcandı" : "UTXO, harcanmamış",
+    return { kind: o.scriptpubkey_type === "op_return" ? "data" : "out", n, value: o.value, named: !!o.label,
+      title: o.label || shortAddr(o.scriptpubkey_address) || (o.scriptpubkey_type === "op_return" ? "OP_RETURN (veri)" : shortType(o.scriptpubkey_type)),
+      sub: o.sub || (o.scriptpubkey_type === "op_return" ? "harcanamaz" : !sp ? "yeni banknot" : sp.spent ? "sonradan harcandı" : "UTXO, harcanmamış"),
       utxo: sp && !sp.spent && o.scriptpubkey_type !== "op_return" };
   });
   outs = group(outs, "çıkış");
@@ -816,8 +948,8 @@ function renderSankey(tx, outspends, sumIn, sumOut, isCoinbase) {
   };
   let paths = "", nodes = "";
   const node = (x, n, side, idx) => {
-    const cls = `node k-${n.kind}${n.utxo ? " utxo" : ""}`;
-    const clickable = n.kind === "in" || n.kind === "out" || n.kind === "data";
+    const cls = `node k-${n.kind}${n.utxo ? " utxo" : ""}${n.named ? " named" : ""}`;
+    const clickable = !opts.static && (n.kind === "in" || n.kind === "out" || n.kind === "data");
     return `<g class="${cls}${clickable ? " clickable" : ""}" data-side="${side}" data-idx="${idx}" ${clickable ? 'tabindex="0" role="button"' : ""}>
       <rect x="${x}" y="${n.y}" width="${NODE_W}" height="${n.h}" rx="10"/>
       <text x="${x + 14}" y="${n.y + n.h / 2 - 4}" class="t1">${esc(n.title)}</text>
@@ -828,10 +960,10 @@ function renderSankey(tx, outspends, sumIn, sumOut, isCoinbase) {
   acc = txY + 20 + (txT - R.reduce((a, x) => a + x.t, 0)) / 2;
   R.forEach((n, i) => { paths += band(TX_X + TX_W, acc, W - NODE_W, n.y + (n.h - n.t) / 2, n.t, "b-" + n.kind + (n.utxo ? " utxo" : "")); acc += n.t; nodes += node(W - NODE_W, n, "out", i); });
   const txBox = `<g class="txnode"><rect x="${TX_X}" y="${txY}" width="${TX_W}" height="${txH}" rx="12"/>
-    <text x="${W / 2}" y="${txY + txH / 2 - 4}" text-anchor="middle" class="t1">İşlem</text>
-    <text x="${W / 2}" y="${txY + txH / 2 + 14}" text-anchor="middle" class="t2">${esc(tx.txid.slice(0, 8))}…</text></g>`;
+    <text x="${W / 2}" y="${txY + txH / 2 - 4}" text-anchor="middle" class="t1">${esc(opts.label || "İşlem")}</text>
+    <text x="${W / 2}" y="${txY + txH / 2 + 14}" text-anchor="middle" class="t2">${esc(opts.sub || tx.txid.slice(0, 8) + "…")}</text></g>`;
 
-  const box = $("txSankey");
+  const box = $(opts.box || "txSankey");
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Girişlerden çıkışlara para akışı">${paths}${txBox}${nodes}</svg>`;
   box.querySelectorAll("g.clickable").forEach(g => {
     const n = (g.dataset.side === "in" ? L : R)[+g.dataset.idx];
@@ -1378,6 +1510,7 @@ function showHome() {
   document.body.classList.remove("results");
   $("addrView").hidden = true; $("txView").hidden = true; showMsg(""); showLoading(false); $("go").disabled = false;
   $("q").value = ""; window.scrollTo({ top: 0 });
+  if (typeof updateTour === "function") updateTour();
 }
 const loadTxAndShow = txid => navigate(txid);
 window.addEventListener("hashchange", route);
@@ -1385,11 +1518,57 @@ $("home").addEventListener("click", () => { if (location.hash) history.pushState
 document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => navigate(b.dataset.q, "mainnet")));
 $("form").addEventListener("submit", e => { e.preventDefault(); const q = $("q").value.trim(); if (q) navigate(q); });
 
-// Klavye: "/" aramaya odaklanır, "P" sunum modunu açıp kapatır
+// ---------- sunum turu: sunum modunda ← → (ve sunum kumandasının PageUp/PageDown tuşları) ----------
+const tabName = t => document.querySelector(`#anatTabs a[data-t="${t}"]`)?.firstChild.textContent.trim() || t;
+const TOUR = [
+  { name: "Giriş" },
+  { q: "d553fb33b1eb48da4e0873e8004c801c787ed4fb6970689724bca4b300e0a8ba", name: "Coinbase işlem" },
+  { q: "b222e767c4f9cd6324b341c6810560e2494721e20f5647ea0e46f81d2f71c12e", name: "SegWit işlem" },
+  { q: "12cbQLTFMXRnSzktFkuoG3eHoMeFtpTu3S", name: "Hal Finney'nin adresi" },
+  { q: "1AfCc4F9c4VTYSE31PUe2kUEKs6ZxiDjxm", name: "Alperen'in adresi" },
+  ...Anatomy.TABS.map(t => ({ h: "#anatomi/" + t, name: "Anatomi · " + tabName(t) })),
+];
+let tourLast = 0;
+function tourIndex() {
+  const h = location.hash;
+  if (!h || h === "#") return 0;
+  if (h.startsWith("#anatomi")) return TOUR.findIndex(s => s.h === "#anatomi/" + (h.split("/")[1] || "legacy"));
+  const p = new URLSearchParams(h.slice(1)), q = (p.get("q") || "").toLowerCase();
+  return TOUR.findIndex(s => s.q && s.q.toLowerCase() === q && (p.get("net") || "mainnet") === "mainnet");
+}
+function tourGo(i) {
+  i = Math.max(0, Math.min(TOUR.length - 1, i));
+  const s = TOUR[i]; tourLast = i;
+  if (s.q) navigate(s.q, "mainnet");
+  else if (s.h) location.hash = s.h;
+  else { if (location.hash) history.pushState(null, "", location.pathname + location.search); showHome(); }
+  updateTour();
+}
+const tourStep = d => { const cur = tourIndex(); tourGo((cur >= 0 ? cur : tourLast) + d); };
+function updateTour() {
+  const cur = tourIndex(); if (cur >= 0) tourLast = cur;
+  $("tourLabel").textContent = cur >= 0 ? TOUR[cur].name : "Serbest arama";
+  $("tourDots").querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-current", i === cur ? "step" : "false"));
+  const at = cur >= 0 ? cur : tourLast;
+  $("tourPrev").disabled = cur === 0; $("tourNext").disabled = at === TOUR.length - 1 && cur >= 0;
+  $("tourPrev").title = TOUR[Math.max(0, at - (cur >= 0 ? 1 : 0))].name;
+  $("tourNext").title = TOUR[Math.min(TOUR.length - 1, at + 1)].name;
+}
+$("tourDots").innerHTML = TOUR.map((s, i) => `<button type="button" data-i="${i}" title="${esc(s.name)}" aria-label="${esc(s.name)}"></button>`).join("");
+$("tourDots").addEventListener("click", e => { const b = e.target.closest("button"); if (b) tourGo(+b.dataset.i); });
+$("tourPrev").addEventListener("click", () => tourStep(-1));
+$("tourNext").addEventListener("click", () => tourStep(1));
+window.addEventListener("hashchange", updateTour);
+
+// Klavye: "/" aramaya odaklanır, "P" sunum modunu açıp kapatır, sunum modunda ← → adım değiştirir
 document.addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
   if (e.key === "/") { e.preventDefault(); $("q").focus(); $("q").select(); }
   if (e.key === "p" || e.key === "P") togglePresent();
+  if (document.body.classList.contains("present")) {
+    if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); tourStep(1); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); tourStep(-1); }
+  }
 });
 function togglePresent(on = !document.body.classList.contains("present")) {
   document.body.classList.toggle("present", on);
@@ -1399,6 +1578,7 @@ function togglePresent(on = !document.body.classList.contains("present")) {
 $("present").addEventListener("click", () => togglePresent());
 try { if (localStorage.getItem("present")) togglePresent(true); } catch (_) {}
 route();
+updateTour();
 $("dl").addEventListener("click", () => state.report && download(`utxos_${state.report.header.address}_${stamp()}.json`, state.report));
 $("dlTx").addEventListener("click", () => state.tx && download(`tx_${state.tx.txid}_${stamp()}.json`, state.tx));
 </script>

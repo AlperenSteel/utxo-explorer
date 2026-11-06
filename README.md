@@ -14,6 +14,7 @@ Canlı veriler public [Esplora API](https://github.com/Blockstream/esplora/blob/
 **Zincir**
 - Adres ya da txid'i otomatik ayırt eder; mainnet / testnet / signet
 - **UTXO daire haritası:** her UTXO bir daire (büyük daire = büyük miktar, logaritmik; renk = yaş); büyükler ortada, elips biçiminde dizilir; üzerine gelince büyür ve ayrıntı gösterir, tıklayınca detay penceresi açılır
+- **Harcama simülasyonu:** gönderilecek miktar ve ücret oranı (varsayılan: mempool.space'in güncel önerisi) girilince cüzdanın hangi banknotları seçeceği haritada yanar; para üstü, ücret ve sanal boyut hesaplanır, taslak işlem akış şemasıyla çizilir. "Büyükten başla" ile "Küçükten başla" yan yana: kaç banknot ve kaç sat ücret tuttuğu, hangi banknotların değerinden pahalıya harcandığı
 - Adres özeti (UTXO sayısı, toplam / onaylı / onaysız değer, işlem sayısı, toplam alınan / harcanan) ve büyükten küçüğe sıralı UTXO listesi
 - **Banknotların akışı:** girişlerden işleme, işlemden çıkışlara ve fee'ye giden şeritler; kalınlık miktarla orantılı, kutular tıklanabilir
 - İşlem özeti: versiyon, locktime, boyut / ağırlık / vbyte, fee ve fee oranı, SegWit, RBF, coinbase (BIP34 blok yüksekliği ve madenci etiketi dahil); `Σ input − Σ output = fee` kontrolü
@@ -34,7 +35,8 @@ Canlı veriler public [Esplora API](https://github.com/Blockstream/esplora/blob/
 - Gezginde bir banknotun kilidinden ilgili anatomi sekmesine geçiş
 
 **Sunum için**
-- **Sunum modu** (sağ üstteki düğme ya da `P`): her şeyi büyütür
+- **Sunum modu** (sağ üstteki düğme ya da `P`): her şeyi büyütür ve alttaki sunum çubuğunu açar
+- **Sunum turu:** sunum modunda `→` / `←` (sunum kumandalarının `PageDown` / `PageUp` tuşları da) hazır sırada ilerler: Giriş → Coinbase işlem → SegWit işlem → Hal Finney'nin adresi → Alperen'in adresi → altı anatomi sekmesi. Alttaki noktalarla istenen adıma atlanır; araya serbest arama girerse kaldığı yerden devam eder. Sıra `index.html`'deki `TOUR` listesinde
 - `/` aramaya odaklanır
 - Adres çubuğunda durum: `#q=<txid|adres>&net=mainnet`, `#anatomi/taproot` gibi. Geri tuşu, yenileme ve hazır sekmeler çalışır
 - **İnternetsiz yedek:** anasayfadaki örneklerin ve köprü işlemlerinin verisi `offline-data.js`'te durur; internet yoksa ya da sağlayıcı 5 saniyede cevap vermezse bu yedek gösterilir
